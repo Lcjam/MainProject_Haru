@@ -1,0 +1,11 @@
+CREATE USER 'user'@'%' IDENTIFIED BY 'user';
+GRANT ALL PRIVILEGES ON *.* TO 'user'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+
+SELECT host, user FROM mysql.user;
+
+show variables where variable_name = 'bind_adress';
+
+CREATE DATABASE haru_db;
+use haru_db;
+

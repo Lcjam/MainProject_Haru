@@ -1,0 +1,8 @@
+CREATE TABLE ProductImages (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,  -- 이미지 PK
+    product_id BIGINT NOT NULL,  -- 상품 ID (FK)
+    image_path VARCHAR(500) NOT NULL,  -- 이미지 파일 경로 또는 URL
+    is_thumbnail BOOLEAN DEFAULT FALSE, -- 대표 이미지 여부
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,  -- 생성 일자
+    FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

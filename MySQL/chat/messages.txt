@@ -1,0 +1,12 @@
+-- 메시지 테이블
+CREATE TABLE IF NOT EXISTS messages (
+    message_id INT AUTO_INCREMENT PRIMARY KEY,
+    chatroom_id INT NOT NULL,
+    sender_email VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    message_type VARCHAR(20) NOT NULL DEFAULT 'TEXT',
+    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_read BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (chatroom_id) REFERENCES chatrooms(chatroom_id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_email) REFERENCES users(email) ON DELETE CASCADE
+);

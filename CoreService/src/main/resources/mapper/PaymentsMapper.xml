@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.demo.mapper.Market.PaymentsMapper">
+
+    <!-- 결제 요청 등록 -->
+    <insert id="insertPayment" parameterType="com.example.demo.dto.Market.PaymentsRequest" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO Payments (transaction_id, amount, payment_method, created_at)
+        VALUES (#{transactionId}, #{amount}, #{paymentMethod}, NOW());
+    </insert>
+
+    <!-- 특정 거래의 결제 내역 조회 -->
+    <select id="findPaymentsByTransaction" parameterType="long" resultType="com.example.demo.dto.Market.PaymentsResponse">
+        SELECT * FROM Payments WHERE transaction_id = #{transactionId};
+    </select>
+
+    <!-- 특정 거래의 총 결제 금액 조회 -->
+    <select id="getTotalPaidByTransaction" parameterType="long" resultType="int">
+        SELECT SUM(amount) FROM Payments WHERE transaction_id = #{transactionId};
+    </select>
+</mapper>

@@ -1,0 +1,27 @@
+CREATE TABLE Products (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    product_code VARCHAR(36) NOT NULL UNIQUE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    price INT NOT NULL,
+    email VARCHAR(255) NOT NULL,  -- Users 테이블 참조 (FK)
+    category_id BIGINT NOT NULL,  -- categories 테이블 참조 (FK)
+    hobby_id BIGINT NOT NULL,  -- hobbies 테이블 참조 (FK)
+    transaction_type ENUM('대면', '비대면') NOT NULL,
+    registration_type ENUM('구매', '판매', '구매 요청', '판매 요청') NOT NULL, 
+    max_participants INT NOT NULL DEFAULT 1, -- 모집 인원 (최소 1명)
+    current_participants INT DEFAULT 0,  -- 현재 모집된 인원 (새로운 컬럼)
+    is_visible BOOLEAN DEFAULT TRUE,  -- 모집 가능 여부 ( 컬럼명 변경)
+    days VARCHAR(255) NOT NULL, -- 활동 요일 (예: "월,수,금")
+    start_date DATETIME NULL, -- 일정 시작일
+    end_date DATETIME NULL, -- 일정 종료일
+    latitude DOUBLE NULL,  -- 거래 장소 위도 (대면일 경우 필수)
+    longitude DOUBLE NULL, -- 거래 장소 경도 (대면일 경우 필수)
+    meeting_place VARCHAR(255) NULL, -- 거래 장소명 (대면일 경우 필수)
+    address VARCHAR(255) NULL, -- 거래 장소 주소 (선택적)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(category_id) ON DELETE RESTRICT,
+    FOREIGN KEY (hobby_id) REFERENCES hobbies(hobby_id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

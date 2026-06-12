@@ -1,0 +1,13 @@
+-- 8. 테이블 생성 (사용자 활동(상품) 테이블)
+
+-- 활동(상품) 테이블
+CREATE TABLE ProductActivity (
+    product_activity_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    product_name VARCHAR(255) NOT NULL, -- 상품 이름 
+    description TEXT, -- 상품 설명
+    registered_products_count INT NOT NULL, -- 상품을 등록한 갯수
+    requested_products_count INT NOT NULL, -- 상품을 요청한 갯수
+    product_activity_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- 활동 일시
+    email VARCHAR(255) NOT NULL,
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

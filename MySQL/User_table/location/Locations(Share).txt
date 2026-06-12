@@ -1,0 +1,16 @@
+CREATE TABLE `locations` (
+   `location_id` bigint(20) NOT NULL AUTO_INCREMENT,
+   `chatroom_id` int(11) NOT NULL,
+   `email` varchar(255) NOT NULL,
+   `latitude` double NOT NULL,
+   `longitude` double NOT NULL,
+   `timestamp` datetime NOT NULL,
+   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY (`location_id`),
+   KEY `email` (`email`),
+   KEY `idx_chatroom_email` (`chatroom_id`,`email`),
+   KEY `idx_timestamp` (`timestamp`),
+   CONSTRAINT `locations_ibfk_1` FOREIGN KEY (`email`) REFERENCES `users` (`email`) ON DELETE CASCADE,
+   CONSTRAINT `locations_ibfk_2` FOREIGN KEY (`chatroom_id`) REFERENCES `chatrooms` (`chatroom_id`) ON DELETE CASCADE
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci

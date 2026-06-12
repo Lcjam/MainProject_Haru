@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.demo.mapper.Market.UserLocationMapper">
+
+    <!-- 사용자 위치 저장 또는 업데이트 -->
+    <insert id="insertOrUpdateUserLocation">
+        INSERT INTO UserLocation (email, location_name, latitude, longitude, recorded_at)
+        VALUES (#{email}, #{locationName}, #{latitude}, #{longitude}, NOW())
+        ON DUPLICATE KEY UPDATE
+                             location_name = VALUES(location_name),
+                             latitude = VALUES(latitude),
+                             longitude = VALUES(longitude),
+                             recorded_at = NOW();
+    </insert>
+
+    <!-- 사용자 최신 위치 조회 -->
+    <select id="getUserLatestLocation" resultType="UserLocation">
+        SELECT *
+        FROM UserLocation
+        WHERE email = #{email}
+        ORDER BY recorded_at DESC
+        LIMIT 1
+    </select>
+
+    <!-- 14일 이상 지난 위치 데이터 자동 삭제 -->
+    <delete id="deleteOldUserLocations">
+        DELETE FROM UserLocation
+        WHERE recorded_at &lt; NOW() - INTERVAL 14 DAY;
+    </delete>
+
+</mapper>

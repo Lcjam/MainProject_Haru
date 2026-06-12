@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.demo.mapper.Market.TransactionsMapper">
+
+    <!-- 거래 생성 -->
+    <insert id="insertTransaction" parameterType="com.example.demo.dto.Market.TransactionsRequest" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO Transactions (product_id, request_email, seller_email, transaction_status, transaction_date, payment_status, price, description, created_at, updated_at)
+        VALUES (#{productId}, #{requestEmail}, #{sellerEmail}, '진행중', NOW(), '미완료', #{price}, #{description}, NOW(), NOW());
+    </insert>
+
+    <!-- 특정 거래 조회 -->
+    <select id="findTransactionById" parameterType="long" resultType="com.example.demo.dto.Market.TransactionsResponse">
+        SELECT * FROM Transactions WHERE id = #{id};
+    </select>
+
+    <!-- 사용자별 거래 내역 조회 -->
+    <select id="findTransactionsByUser" parameterType="string" resultType="com.example.demo.dto.Market.TransactionsResponse">
+        SELECT * FROM Transactions WHERE request_email = #{email} OR seller_email = #{email};
+    </select>
+
+
+    <!-- 거래 가격 조회 -->
+    <select id="getTransactionPrice" parameterType="long" resultType="int">
+        SELECT price FROM Transactions WHERE id = #{id};
+    </select>
+
+    <!-- 결제 완료 시 거래 상태 자동 변경 -->
+    <update id="updateTransactionStatusOnPayment">
+        UPDATE Transactions t1
+        JOIN (SELECT id, price FROM Transactions) t2 ON t1.id = t2.id
+        SET t1.transaction_status = '완료',
+        t1.payment_status = '완료',  <!-- 결제 상태도 함께 업데이트 -->
+        t1.updated_at = NOW()
+        WHERE t1.id = #{transactionId}
+        AND (SELECT SUM(amount) FROM Payments WHERE transaction_id = #{transactionId}) >= t2.price;
+    </update>
+</mapper>

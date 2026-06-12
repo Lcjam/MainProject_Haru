@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.demo.mapper.Market.ProductImageMapper">
+
+    <!-- 이미지 추가 -->
+    <insert id="insertProductImage" parameterType="com.example.demo.model.Market.ProductImage" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ProductImages (product_id, image_path, is_thumbnail, created_at)
+        VALUES (#{productId}, #{imagePath}, #{isThumbnail}, NOW())
+    </insert>
+
+
+    <select id="findByProductId" parameterType="long" resultType="com.example.demo.model.Market.ProductImage">
+        SELECT * FROM ProductImages WHERE product_id = #{productId}
+    </select>
+
+    <select id="findById" parameterType="long" resultType="com.example.demo.model.Market.ProductImage">
+        SELECT * FROM ProductImages WHERE id = #{imageId}
+    </select>
+    
+</mapper>
+

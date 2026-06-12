@@ -1,0 +1,14 @@
+-- 4. 테이블 생성 (댓글 테이블)
+
+CREATE TABLE Comments (
+    comment_id INT PRIMARY KEY AUTO_INCREMENT,
+    parent_comment_id INT NULL,  -- NULL 허용 (대댓글 가능하도록 설정)
+    comment_content TEXT NOT NULL,
+    comment_created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    comment_updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    post_id INT,
+    email VARCHAR(255) NOT NULL,
+    FOREIGN KEY (post_id) REFERENCES Posts(post_id) ON DELETE CASCADE,
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE,
+    FOREIGN KEY (parent_comment_id) REFERENCES Comments(comment_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -40,6 +40,9 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             "/api/core/auth/login",
             "/api/core/auth/logout",
             "/api/core/auth/oauth2/**",
+            // 회원가입 화면(로그인 전)에서 필요한 취미/카테고리 참조 데이터 — CoreService SecurityConfig와 동일하게 공개
+            "/api/core/hobbies",
+            "/api/core/hobbies/**",
             "/ws",
             "/ws/**",
             "/topic/**"

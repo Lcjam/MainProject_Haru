@@ -1,0 +1,12 @@
+-- 15. 테이블 생성 (알림 테이블)
+
+-- 알림 테이블
+CREATE TABLE Notices (
+    notice_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    notice_message TEXT NOT NULL,
+    notice_type ENUM('TRADE', 'CHAT', 'BOARD') NOT NULL,
+    notice_status ENUM('UNREAD', 'READ') NOT NULL,
+    notice_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    email VARCHAR(255) NOT NULL,
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

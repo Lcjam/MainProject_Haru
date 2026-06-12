@@ -1,0 +1,10 @@
+-- 5. 테이블 생성 (리뷰 테이블)
+
+CREATE TABLE Reviews (
+    review_id INT PRIMARY KEY AUTO_INCREMENT,
+    review_rating INT NOT NULL,
+    review_content TEXT NOT NULL,
+    review_created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    email VARCHAR(255) NOT NULL,
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

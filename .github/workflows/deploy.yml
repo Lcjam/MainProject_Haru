@@ -1,0 +1,362 @@
+name: Deploy All Services
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      job_name:
+        description: 'Job to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - deploy-locally
+
+jobs:
+  cleanup:
+    runs-on: self-hosted
+    steps:
+      - name: Cleanup workspace
+        shell: bash
+        run: |
+          WORKSPACE="/home/user/actions-runner/_work/MainProject"
+          if [ -d "$WORKSPACE" ]; then
+            echo "Starting cleanup process..."
+            
+            # 1. 현재 디렉토리 상태 확인
+            echo "Current directory size:"
+            du -sh $WORKSPACE
+            
+            # 2. 도커 정리
+            echo "Cleaning Docker resources..."
+            docker system prune -af --volumes || true
+            
+            # 3. 파일 시스템 캐시 정리
+            echo "Clearing filesystem cache..."
+            sudo sync
+            
+            # 4. 빠른 삭제를 위한 병렬 처리
+            echo "Removing workspace..."
+            sudo find $WORKSPACE -type f -print0 | sudo xargs -0 -P 4 rm -f || true
+            sudo find $WORKSPACE -type d -print0 | sudo xargs -0 -P 4 rm -rf || true
+            
+            # 5. 최종 정리
+            sudo rm -rf $WORKSPACE
+            
+            echo "Cleanup completed"
+          else
+            echo "Workspace not found"
+          fi
+
+  docker-login:
+    runs-on: self-hosted
+    needs: cleanup
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup workspace
+        shell: bash
+        run: |
+          # 작업 디렉토리 권한 설정
+          sudo chown -R $USER:$USER .
+          # SSL 디렉토리 준비
+          mkdir -p nginx/ssl/live/sunbee.world
+          chmod -R 755 nginx
+
+      - name: Docker Hub 로그인
+        run: |
+          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+          docker info
+
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    needs: docker-login
+    steps:
+      - uses: actions/checkout@v3
+
+      # Docker 로그인 재시도
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      # Docker 캐시 설정
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      # FastAPI Dockerfile 빌드 및 푸시 (재시도 로직 추가)
+      - name: Build and Push FastAPI Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./FastAPI
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/fastapi-ai:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          builder: ${{ steps.buildx.outputs.name }}
+
+      # 캐시 정리
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  build-and-deploy-gateway:
+    runs-on: self-hosted
+    needs: build-and-deploy
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+      - name: Build Spring Gateway
+        shell: bash
+        run: |
+          cd GateWay
+          chmod +x ./gradlew
+          ./gradlew clean build
+      - name: Build & Push Gateway Docker Image
+        shell: bash
+        run: |
+          # 로그인 재시도
+          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+          # 빌드 및 푸시
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/gateway-service:latest ./GateWay || exit 1
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/gateway-service:latest || exit 1
+          # 로그아웃
+          docker logout
+
+  build-and-deploy-core:
+    runs-on: self-hosted
+    needs: build-and-deploy-gateway
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+      - name: Build Core Spring Service
+        shell: bash
+        run: |
+          cd CoreService
+          chmod +x ./gradlew
+          ./gradlew clean build
+      - name: Build & Push Core Docker Image with Redis
+        shell: bash
+        run: |
+          # 로그인 재시도
+          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+          
+          # Redis 설정이 포함된 Dockerfile 확인
+          echo "Dockerfile에 Redis 설정이 포함되어 있는지 확인합니다."
+          grep -q "redis-server" ./CoreService/Dockerfile || echo "경고: Dockerfile에 Redis 설정이 없습니다."
+          
+          # 빌드 및 푸시
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/core-service:latest ./CoreService || exit 1
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/core-service:latest || exit 1
+          
+          # 로그아웃
+          docker logout
+
+  build-and-deploy-assist:
+    runs-on: self-hosted
+    needs: build-and-deploy-core
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+      - name: Build Assist Service
+        shell: bash
+        run: |
+          cd AssistService
+          chmod +x ./gradlew
+          ./gradlew clean build
+      - name: Build & Push Assist Docker Image
+        shell: bash
+        run: |
+          # 로그인 재시도
+          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+          # 빌드 및 푸시
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/assist-service:latest ./AssistService || exit 1
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/assist-service:latest || exit 1
+          # 로그아웃
+          docker logout
+      
+  build-and-deploy-frontend:
+    runs-on: self-hosted
+    needs: build-and-deploy-assist
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Setup SSL certificates
+        shell: bash
+        run: |
+          # SSL 디렉토리 생성
+          mkdir -p nginx/ssl/live/sunbee.world
+          # Secret에서 인증서 생성
+          echo "${{ secrets.SSL_CERT }}" > nginx/ssl/live/sunbee.world/fullchain.pem
+          echo "${{ secrets.SSL_KEY }}" > nginx/ssl/live/sunbee.world/privkey.pem
+          # 권한 설정
+          chmod 600 nginx/ssl/live/sunbee.world/*.pem
+
+      - name: Build Frontend
+        shell: bash
+        run: |
+          cd vite-react-teamsketch
+          npm install
+          npm run build
+
+      - name: Build & Push Frontend Docker Image
+        shell: bash
+        run: |
+          # 최대 3번 재시도
+          max_attempts=3
+          attempt=1
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "시도 $attempt/$max_attempts: Docker 이미지 빌드 및 푸시"
+            
+            # Docker Hub 로그인
+            echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+            
+            # 빌드 시도
+            if docker build --build-arg ENV=prod -t ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:latest ./vite-react-teamsketch; then
+              # 푸시 시도
+              if docker push ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:latest; then
+                echo "성공: 이미지 빌드 및 푸시 완료"
+                docker logout
+                exit 0
+              fi
+            fi
+            
+            echo "실패: 재시도 중..."
+            sleep 10
+            attempt=$((attempt + 1))
+          done
+
+          echo "모든 시도 실패"
+          docker logout
+          exit 1
+
+  deploy-locally:
+    runs-on: self-hosted
+    needs: [build-and-deploy-frontend]
+    if: ${{ github.event.inputs.job_name == 'deploy-locally' || github.event.inputs.job_name == 'all' || github.event_name == 'push' }}
+    steps:
+      - name: Clean up existing containers
+        run: |
+          # 기존 컨테이너 중지 및 제거
+          docker rm -f gateway-container || true
+          docker rm -f core-container || true
+          docker rm -f assist-container || true
+          docker rm -f fastapi-container || true
+          docker rm -f frontend-container || true
+
+      - name: Create Docker network
+        run: |
+          # 기존 네트워크 제거 (있다면)
+          docker network rm teamsketch-network || true
+          # 새 네트워크 생성
+          docker network create teamsketch-network || true
+
+      - name: Deploy containers
+        shell: /usr/bin/bash -e {0}
+        run: |
+          # 게이트웨이 서버 먼저 실행
+          docker run -d --name gateway-container \
+            --network teamsketch-network \
+            -p 8080:8080 \
+            -e SPRING_PROFILES_ACTIVE=${{ secrets.SPRING_PROFILES_ACTIVE }} \
+            ${{ secrets.DOCKER_HUB_USERNAME }}/gateway-service:latest
+
+          # CoreService 실행 (Redis 포함)
+          docker run -d --name core-container \
+            --network teamsketch-network \
+            -p 8081:8081 \
+            -p 6379:6379 \
+            ${{ secrets.DOCKER_HUB_USERNAME }}/core-service:latest
+            
+          # Redis 서비스가 실행 중인지 확인
+          echo "Redis 서비스 실행 상태 확인 중..."
+          sleep 15  # 충분한 시간 대기
+          
+          # Redis 컨테이너 로그 확인
+          echo "Core 컨테이너 로그 확인:"
+          docker logs core-container
+          
+          # Redis 서비스 상태 확인 (재시도 로직 추가)
+          max_attempts=5
+          attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            echo "Redis 연결 시도 $attempt/$max_attempts..."
+            if docker exec core-container redis-cli ping; then
+              echo "Redis 서비스가 정상적으로 응답합니다."
+              break
+            else
+              echo "Redis 서비스 응답 실패, 재시도 중..."
+              # 컨테이너 내부 Redis 프로세스 확인
+              docker exec core-container ps aux | grep redis
+              # Redis 포트 확인
+              docker exec core-container netstat -tulpn | grep 6379 || echo "포트 6379가 열려있지 않습니다."
+              
+              if [ $attempt -eq $max_attempts ]; then
+                echo "경고: Redis 서비스가 응답하지 않습니다. 계속 진행합니다."
+              fi
+              
+              attempt=$((attempt + 1))
+              sleep 5
+            fi
+          done
+            
+          docker run -d --name assist-container \
+            --network teamsketch-network \
+            -p 8082:8082 \
+            -e SPRING_PROFILES_ACTIVE=${{ secrets.SPRING_PROFILES_ACTIVE }} \
+            -e SMS_API_KEY=${{ secrets.SMS_API_KEY }} \
+            -e SMS_API_SECRET=${{ secrets.SMS_API_SECRET }} \
+            -e SMS_API_URL=${{ secrets.SMS_API_URL }} \
+            -e NAVER_CLOUD_CHATBOT_SECRET_KEY=${{ secrets.NAVER_CLOUD_CHATBOT_SECRET_KEY }} \
+            -e NAVER_CLOUD_CHATBOT_API_URL=${{ secrets.NAVER_CLOUD_CHATBOT_API_URL }} \
+            -e NAVER_CLOUD_OCR_SECRET_KEY=${{ secrets.NAVER_CLOUD_OCR_SECRET_KEY }} \
+            -e NAVER_CLOUD_OCR_API_URL=${{ secrets.NAVER_CLOUD_OCR_API_URL }} \
+            -e KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }} \
+            ${{ secrets.DOCKER_HUB_USERNAME }}/assist-service:latest
+            
+          docker run -d --name fastapi-container \
+            --network teamsketch-network \
+            -p 8001:8001 \
+            ${{ secrets.DOCKER_HUB_USERNAME }}/fastapi-ai:latest
+
+          # 백엔드 서버들이 모두 준비된 후 프론트엔드 실행
+          sleep 30
+          docker run -d --name frontend-container \
+            --network teamsketch-network \
+            -p 80:80 -p 443:443 \
+            -v "$(pwd)/nginx/ssl/live/sunbee.world:/etc/letsencrypt/live/sunbee.world:ro" \
+            ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:latest
+
+          # 컨테이너 상태 확인
+          docker ps -a
+          # 네트워크 상태 확인
+          docker network inspect teamsketch-network

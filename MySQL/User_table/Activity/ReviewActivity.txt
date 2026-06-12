@@ -1,0 +1,10 @@
+-- 11. 테이블 생성 (사용자 활동(리뷰) 테이블)
+
+-- 활동(리뷰) 테이블
+CREATE TABLE ReviewActivity (
+    review_activity_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    review_written_count INT NOT NULL,
+    review_activity_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    email VARCHAR(255) NOT NULL,
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -1,0 +1,10 @@
+CREATE TABLE user_hobbies (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL COMMENT '사용자 이메일',
+    hobby_id BIGINT NOT NULL COMMENT '취미 ID',
+    category_id BIGINT NOT NULL COMMENT '선택한 카테고리 ID',
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (hobby_id) REFERENCES hobbies(hobby_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(category_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    UNIQUE KEY unique_user_hobby (email, hobby_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

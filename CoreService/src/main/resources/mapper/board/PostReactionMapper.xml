@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.mapper.board.PostReactionMapper">
+    
+    <!-- 게시글 반응 추가 -->
+    <insert id="addReaction" parameterType="com.example.demo.model.board.PostReaction" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO board_post_reactions (
+            post_id, user_email, reaction_type, created_at, updated_at
+        ) VALUES (
+            #{postId}, #{userEmail}, #{reactionType}, NOW(), NOW()
+        )
+    </insert>
+    
+    <!-- 게시글 반응 수정 -->
+    <update id="updateReaction" parameterType="com.example.demo.model.board.PostReaction">
+        UPDATE board_post_reactions
+        SET 
+            reaction_type = #{reactionType},
+            updated_at = NOW()
+        WHERE 
+            post_id = #{postId}
+            AND user_email = #{userEmail}
+    </update>
+    
+    <!-- 게시글 반응 삭제 -->
+    <delete id="deleteReaction">
+        DELETE FROM board_post_reactions
+        WHERE 
+            post_id = #{postId}
+            AND user_email = #{userEmail}
+    </delete>
+    
+    <!-- 게시글의 특정 사용자 반응 조회 -->
+    <select id="getUserReaction" resultMap="reactionResultMap">
+        SELECT 
+            r.*,
+            u.name as user_name,
+            u.nickname as user_nickname,
+            u.profile_image_path as user_profile_image
+        FROM 
+            board_post_reactions r
+            LEFT JOIN users u ON r.user_email = u.email
+        WHERE 
+            r.post_id = #{postId}
+            AND r.user_email = #{userEmail}
+    </select>
+    
+    <!-- 게시글의 모든 반응 조회 -->
+    <select id="getPostReactions" resultMap="reactionResultMap">
+        SELECT 
+            r.*,
+            u.name as user_name,
+            u.nickname as user_nickname,
+            u.profile_image_path as user_profile_image
+        FROM 
+            board_post_reactions r
+            LEFT JOIN users u ON r.user_email = u.email
+        WHERE 
+            r.post_id = #{postId}
+        ORDER BY 
+            r.created_at DESC
+    </select>
+    
+    <!-- 게시글의 반응 타입별 개수 조회 -->
+    <select id="getReactionCounts" resultType="map">
+        SELECT 
+            reaction_type as reactionType,
+            COUNT(*) as count
+        FROM 
+            board_post_reactions
+        WHERE 
+            post_id = #{postId}
+        GROUP BY 
+            reaction_type
+    </select>
+    
+    <!-- 사용자가 작성한 반응 목록 조회 -->
+    <select id="getUserReactions" resultMap="reactionResultMap">
+        SELECT 
+            r.*,
+            u.name as user_name,
+            u.nickname as user_nickname,
+            u.profile_image_path as user_profile_image
+        FROM 
+            board_post_reactions r
+            LEFT JOIN users u ON r.user_email = u.email
+        WHERE 
+            r.user_email = #{userEmail}
+        ORDER BY 
+            r.created_at DESC
+    </select>
+    
+    <!-- 특정 게시글의 특정 유형 반응 개수 조회 -->
+    <select id="countReactionsByType" resultType="int">
+        SELECT 
+            COUNT(*) 
+        FROM 
+            board_post_reactions
+        WHERE 
+            post_id = #{postId}
+            AND reaction_type = #{reactionType}
+    </select>
+    
+    <!-- 특정 게시글의 전체 반응 개수 조회 -->
+    <select id="countAllReactions" resultType="int">
+        SELECT 
+            COUNT(*) 
+        FROM 
+            board_post_reactions
+        WHERE 
+            post_id = #{postId}
+    </select>
+    
+    <!-- 사용자가 게시글에 이미 반응했는지 확인 -->
+    <select id="hasUserReacted" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 
+            FROM board_post_reactions 
+            WHERE post_id = #{postId} AND user_email = #{userEmail}
+        )
+    </select>
+    
+    <!-- 새로운 반응 추가 -->
+    <insert id="insertReaction">
+        INSERT INTO board_post_reactions (
+            post_id, user_email, reaction_type, created_at, updated_at
+        ) VALUES (
+            #{postId}, #{userEmail}, #{reactionType}, NOW(), NOW()
+        )
+    </insert>
+    
+    <!-- 게시글의 반응 목록 조회 -->
+    <select id="getReactionsByPostId" resultMap="reactionResultMap">
+        SELECT 
+            r.*,
+            u.name as user_name,
+            u.nickname as user_nickname,
+            u.profile_image_path as user_profile_image
+        FROM 
+            board_post_reactions r
+            LEFT JOIN users u ON r.user_email = u.email
+        WHERE 
+            r.post_id = #{postId}
+        ORDER BY 
+            r.created_at DESC
+    </select>
+    
+    <!-- 기존 반응 수정 (타입 변경) -->
+    <update id="updateReactionType">
+        UPDATE board_post_reactions
+        SET reaction_type = #{reactionType}, updated_at = NOW()
+        WHERE post_id = #{postId} AND user_email = #{userEmail}
+    </update>
+    
+    <!-- 게시글의 반응 타입별 통계 조회 -->
+    <select id="getReactionStatistics" resultType="java.util.Map">
+        SELECT 
+            reaction_type AS 'type',
+            COUNT(*) AS 'count'
+        FROM 
+            board_post_reactions
+        WHERE 
+            post_id = #{postId}
+        GROUP BY 
+            reaction_type
+    </select>
+    
+    <!-- 결과 매핑 -->
+    <resultMap id="reactionResultMap" type="com.example.demo.model.board.PostReaction">
+        <id property="id" column="id"/>
+        <result property="postId" column="post_id"/>
+        <result property="userEmail" column="user_email"/>
+        <result property="reactionType" column="reaction_type"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="userName" column="user_name"/>
+        <result property="userNickname" column="user_nickname"/>
+        <result property="userProfileImage" column="user_profile_image"/>
+    </resultMap>
+</mapper>

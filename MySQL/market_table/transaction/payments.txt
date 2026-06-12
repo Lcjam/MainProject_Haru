@@ -1,0 +1,8 @@
+CREATE TABLE Payments (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    transaction_id BIGINT NOT NULL, -- 해당 거래 ID
+    amount INT NOT NULL, -- 결제 금액 (포인트)
+    payment_method ENUM('포인트', '카드', '계좌이체') NOT NULL, -- 결제 수단
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (transaction_id) REFERENCES Transactions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

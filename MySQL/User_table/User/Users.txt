@@ -1,0 +1,19 @@
+CREATE TABLE Users (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, -- 내부적으로 사용할 PK
+    email VARCHAR(255) NOT NULL UNIQUE,  -- 사용자 ID (이메일)
+    password_hash VARCHAR(255) NOT NULL,  -- 비밀번호 해시
+    name VARCHAR(255) NOT NULL,  -- 이름
+    phone_number VARCHAR(15),
+    nickname VARCHAR(50) UNIQUE NOT NULL,  -- 닉네임 (중복 방지)
+    hobby TEXT,
+    bio TEXT,
+    login_method ENUM('EMAIL', 'SOCIAL') NOT NULL,  -- 로그인 방식
+    social_provider ENUM('GOOGLE', 'KAKAO', 'NAVER', 'NONE') DEFAULT 'NONE', -- 소셜 로그인 제공자
+    account_status ENUM('Active', 'Deactivated', 'Dormant', 'Withdrawal') NOT NULL DEFAULT 'Active', -- 계정 상태
+    authority ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER',  -- 권한 (일반, 관리자)
+    signup_date DATETIME DEFAULT CURRENT_TIMESTAMP,  -- 가입 일자
+    last_update_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 정보 수정 일자
+    last_login_time DATETIME NULL, -- 마지막 로그인 시간
+    login_failed_attempts INT DEFAULT 0, -- 로그인 실패 횟수
+    login_is_locked BOOLEAN DEFAULT FALSE  -- 계정 잠금 여부
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

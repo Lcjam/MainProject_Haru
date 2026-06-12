@@ -1,0 +1,7 @@
+CREATE TABLE category_hobbies (
+    category_id BIGINT NOT NULL COMMENT '카테고리 ID',
+    hobby_id BIGINT NOT NULL COMMENT '취미 ID',
+    PRIMARY KEY (category_id, hobby_id),
+    FOREIGN KEY (category_id) REFERENCES categories(category_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (hobby_id) REFERENCES hobbies(hobby_id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

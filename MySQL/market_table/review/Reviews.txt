@@ -1,0 +1,12 @@
+-- 11. 테이블 생성 (마켓 리뷰 테이블)
+
+CREATE TABLE Reviews (
+    review_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    review_rating TINYINT NOT NULL,
+    review_comment TEXT,
+    review_created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    service_id BIGINT,
+    email VARCHAR(255) NOT NULL,
+    FOREIGN KEY (service_id) REFERENCES Services(service_id),
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -1,0 +1,7 @@
+CREATE TABLE User_Account_info (
+    email VARCHAR(255) NOT NULL PRIMARY KEY, -- email을 PK로 사용
+    account_status ENUM('Active', 'Deactivated', 'Dormant', 'Withdrawal') NOT NULL,
+    authority ENUM('1', '2') NOT NULL,  -- '1': 일반, '2': 관리자
+    authority_name VARCHAR(255) NOT NULL,
+    CONSTRAINT fk_user_account_email FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

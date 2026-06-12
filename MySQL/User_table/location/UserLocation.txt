@@ -1,0 +1,9 @@
+CREATE TABLE UserLocation (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL, //FK
+    location_name VARCHAR(255), // 지역 이름 
+    latitude DECIMAL(10, 8) NOT NULL, // 위도
+    longitude DECIMAL(11, 8) NOT NULL, // 경도
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

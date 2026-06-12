@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.mapper.board.CommentMapper">
+    
+    <!-- 댓글 생성 -->
+    <insert id="createComment" parameterType="com.example.demo.model.board.Comment" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO board_comments (
+            post_id, parent_id, author_email, content, created_at, updated_at, is_deleted, depth
+        ) VALUES (
+            #{postId}, #{parentId}, #{authorEmail}, #{content}, NOW(), NOW(), false, 
+            <choose>
+                <when test="parentId != null">1</when>
+                <otherwise>0</otherwise>
+            </choose>
+        )
+    </insert>
+    
+    <!-- 댓글 수정 -->
+    <update id="updateComment" parameterType="com.example.demo.model.board.Comment">
+        UPDATE board_comments
+        SET 
+            content = #{content},
+            updated_at = NOW()
+        WHERE 
+            id = #{id}
+            AND author_email = #{authorEmail}
+            AND is_deleted = false
+    </update>
+    
+    <!-- 댓글 삭제 (소프트 삭제) -->
+    <update id="deleteComment">
+        UPDATE board_comments
+        SET 
+            is_deleted = true,
+            deleted_at = NOW()
+        WHERE 
+            id = #{id}
+            AND author_email = #{email}
+    </update>
+    
+    <!-- 댓글 ID로 조회 -->
+    <select id="getCommentById" resultMap="commentResultMap">
+        SELECT 
+            c.*,
+            u.name as author_name,
+            u.nickname as author_nickname,
+            u.profile_image_path as author_profile_image,
+            (SELECT COUNT(*) FROM board_comments WHERE parent_id = c.id AND is_deleted = false) as reply_count
+        FROM 
+            board_comments c
+            LEFT JOIN users u ON c.author_email = u.email
+        WHERE 
+            c.id = #{id}
+            AND c.is_deleted = false
+    </select>
+    
+    <!-- 게시글의 모든 댓글 조회 (계층 구조, 최상위 댓글만) -->
+    <select id="getCommentsByPostId" resultMap="commentResultMap">
+        SELECT 
+            c.*,
+            u.name as author_name,
+            u.nickname as author_nickname,
+            u.profile_image_path as author_profile_image,
+            (SELECT COUNT(*) FROM board_comments WHERE parent_id = c.id AND is_deleted = false) as reply_count
+        FROM 
+            board_comments c
+            LEFT JOIN users u ON c.author_email = u.email
+        WHERE 
+            c.post_id = #{postId}
+            AND c.parent_id IS NULL
+            AND c.is_deleted = false
+        ORDER BY 
+            c.created_at DESC
+    </select>
+    
+    <!-- 게시글의 모든 댓글 수 조회 -->
+    <select id="countCommentsByPostId" resultType="int">
+        SELECT COUNT(*)
+        FROM board_comments
+        WHERE post_id = #{postId}
+        AND is_deleted = false
+    </select>
+    
+    <!-- 특정 댓글의 대댓글 조회 -->
+    <select id="getRepliesByParentId" resultMap="commentResultMap">
+        SELECT 
+            c.*,
+            u.name as author_name,
+            u.nickname as author_nickname,
+            u.profile_image_path as author_profile_image,
+            0 as reply_count
+        FROM 
+            board_comments c
+            LEFT JOIN users u ON c.author_email = u.email
+        WHERE 
+            c.parent_id = #{parentId}
+            AND c.is_deleted = false
+        ORDER BY 
+            c.created_at ASC
+    </select>
+    
+    <!-- 특정 댓글의 대댓글 수 조회 -->
+    <select id="countRepliesByParentId" resultType="int">
+        SELECT COUNT(*)
+        FROM board_comments
+        WHERE parent_id = #{parentId}
+        AND is_deleted = false
+    </select>
+    
+    <!-- 대댓글 수 업데이트 -->
+    <update id="updateReplyCount">
+        UPDATE board_comments
+        SET reply_count = #{count}
+        WHERE id = #{id}
+    </update>
+    
+    <!-- 게시글의 댓글 수 업데이트 -->
+    <update id="updatePostCommentCount">
+        UPDATE board_posts
+        SET comment_count = #{count}
+        WHERE id = #{postId}
+    </update>
+    
+    <!-- 사용자가 작성한 댓글 조회 -->
+    <select id="getCommentsByAuthorEmail" resultMap="commentResultMap">
+        SELECT 
+            c.*,
+            u.name as author_name,
+            u.nickname as author_nickname,
+            u.profile_image_path as author_profile_image,
+            (SELECT COUNT(*) FROM board_comments WHERE parent_id = c.id AND is_deleted = false) as reply_count
+        FROM 
+            board_comments c
+            LEFT JOIN users u ON c.author_email = u.email
+        WHERE 
+            c.author_email = #{email}
+            AND c.is_deleted = false
+        ORDER BY 
+            c.created_at DESC
+    </select>
+    
+    <!-- 결과 매핑 -->
+    <resultMap id="commentResultMap" type="com.example.demo.model.board.Comment">
+        <id property="id" column="id"/>
+        <result property="postId" column="post_id"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="authorEmail" column="author_email"/>
+        <result property="content" column="content"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+        <result property="isDeleted" column="is_deleted"/>
+        <result property="authorName" column="author_name"/>
+        <result property="authorNickname" column="author_nickname"/>
+        <result property="authorProfileImage" column="author_profile_image"/>
+        <result property="replyCount" column="reply_count"/>
+        <result property="depth" column="depth"/>
+    </resultMap>
+</mapper>

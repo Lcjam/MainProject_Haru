@@ -1,0 +1,7 @@
+-- 5. 테이블 생성 (신고 유형 테이블)
+
+CREATE TABLE ReportTypes (
+    report_type_id INT PRIMARY KEY AUTO_INCREMENT,
+    report_type_types ENUM('Post', 'Comment') NOT NULL,
+    type_name VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

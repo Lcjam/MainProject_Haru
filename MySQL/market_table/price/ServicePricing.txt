@@ -1,0 +1,13 @@
+-- 4. 테이블 생성 (마켓 가격 테이블)
+
+CREATE TABLE ServicePricing (
+    service_pricing_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    service_id BIGINT UNIQUE,
+    email VARCHAR(255) NOT NULL,
+    service_price DECIMAL(10, 2) NOT NULL,
+    service_price_description VARCHAR(255),
+    detail_id BIGINT,
+    FOREIGN KEY (service_id) REFERENCES Services(service_id),
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE,
+    FOREIGN KEY (detail_id) REFERENCES ServiceDetails(detail_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

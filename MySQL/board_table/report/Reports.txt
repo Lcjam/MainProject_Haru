@@ -1,0 +1,15 @@
+-- 6. 테이블 생성 (신고 테이블)
+
+CREATE TABLE Reports (
+    report_id INT PRIMARY KEY AUTO_INCREMENT,
+    report_reason TEXT NOT NULL,
+    report_created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    email VARCHAR(255) NOT NULL,
+    post_id INT NULL,  -- 신고 대상이 게시글일 경우 참조
+    comment_id INT NULL,  -- 신고 대상이 댓글일 경우 참조
+    report_type_id INT,
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES Posts(post_id) ON DELETE CASCADE,
+    FOREIGN KEY (comment_id) REFERENCES Comments(comment_id) ON DELETE CASCADE,
+    FOREIGN KEY (report_type_id) REFERENCES ReportTypes(report_type_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.demo.mapper.Market.ProductMapper">
+
+    <!-- 상품 추가 -->
+    <insert id="insertProduct" parameterType="com.example.demo.model.Market.Product" useGeneratedKeys="true" keyProperty="id">
+
+        INSERT INTO Products (
+            product_code, title, description, price, email, category_id, hobby_id,
+            transaction_type, registration_type, max_participants, current_participants,
+            start_date, end_date, latitude, longitude, meeting_place, address, days, is_visible, created_at, updated_at
+        ) VALUES (
+                     #{productCode}, #{title}, #{description}, #{price}, #{email}, #{categoryId}, #{hobbyId},
+                     #{transactionType}, #{registrationType}, #{maxParticipants}, 0,
+                     #{startDate}, #{endDate}, #{latitude}, #{longitude}, #{meetingPlace}, #{address}, #{days}, TRUE, NOW(), NOW()
+                 )
+    </insert>
+
+    <!-- 상품 요청 등록 (ProductRequests 테이블에 저장) -->
+    <insert id="insertProductRequest" parameterType="map">
+        INSERT INTO productrequests (product_id, requester_email, created_at, updated_at, status, approval_status)
+        VALUES (#{productId}, #{requesterEmail}, NOW(), NOW(), '대기', '미승인');
+    </insert>
+
+    <!-- 모집 인원 증가 -->
+    <update id="increaseCurrentParticipants">
+        UPDATE Products
+        SET current_participants = (
+            SELECT COUNT(*)
+            FROM productrequests
+            WHERE product_id = #{productId} AND approval_status = '승인'
+        )
+        WHERE id = #{productId};
+    </update>
+
+    <!-- 모집된 인원과 모집 제한 비교하여 모집 마감 -->
+    <update id="updateProductVisibility">
+        UPDATE Products
+        SET is_visible = FALSE
+        WHERE id = #{productId} AND current_participants >= max_participants;
+    </update>
+
+    <!-- 상품 요청 승인 여부 업데이트 -->
+    <update id="updateRequestApprovalStatus">
+        UPDATE productrequests
+        SET approval_status = #{approvalStatus}, status = '완료', updated_at = NOW()
+        WHERE id = #{requestId};
+    </update>
+
+    <!-- 모집 마감 처리 -->
+    <update id="updateProductStatusToComplete">
+        UPDATE Products
+        SET is_visible = FALSE
+        WHERE id = #{productId}
+          AND (
+                  SELECT COUNT(*) FROM productrequests
+                  WHERE product_id = #{productId}
+                    AND approval_status = '승인'
+              ) >= max_participants;
+    </update>
+
+
+    <!-- 상품 요청 상태를 '완료'로 변경 (승인된 요청만) -->
+    <update id="updateRequestStatusToComplete">
+        UPDATE productrequests
+        SET status = '완료', updated_at = NOW()
+        WHERE product_id = #{productId}
+          AND approval_status = '승인';
+    </update>
+
+    <!-- 상품 ID를 이용해 등록한 사용자의 이메일 찾기 (알림 전송 시 사용) -->
+    <select id="findEmailByProductId" parameterType="long" resultType="string">
+        SELECT email FROM Products WHERE id = #{productId}
+    </select>
+
+    <!-- 승인된 요청만 가져오기 (productId만으로 조회) -->
+    <select id="findApprovedRequests" parameterType="long" resultType="map">
+        SELECT
+            pr.id AS id,
+            u.nickname AS nickname,
+            u.email AS email,
+            pr.approval_status AS approvalStatus
+        FROM productrequests pr
+                 JOIN Users u ON pr.requester_email = u.email
+        WHERE pr.product_id = #{productId}
+          AND pr.approval_status = '승인'
+        ORDER BY pr.created_at ASC;
+    </select>
+
+
+    <!-- 요청자의 이메일을 요청 ID(requestId) 가져오기 -->
+    <select id="findRequesterEmailByRequestId" parameterType="long" resultType="string">
+        SELECT requester_email
+        FROM productrequests
+        WHERE id = #{requestId}
+    </select>
+
+    <!-- 개별 상품 조회 (마감된 상품은 등록자와 승인된 사용자만 조회 가능) -->
+    <select id="findById" parameterType="map" resultMap="ProductWithImagesMap">
+        SELECT
+        p.*, u.nickname, u.bio, p.days,
+        COALESCE(pd.dopamine, 50) AS dopamine, pi.image_path
+        FROM products p
+        LEFT JOIN users u ON p.email = u.email
+        LEFT JOIN productimages pi ON p.id = pi.product_id
+        LEFT JOIN (
+        SELECT email, SUM(dopamine) AS dopamine
+        FROM pointsdopamineactivity
+        GROUP BY email
+        ) pd ON u.email = pd.email
+        WHERE p.id = #{id}
+        AND (
+        p.is_visible = TRUE
+        OR p.email = #{email}  <!-- 등록자는 조회 가능 -->
+        OR EXISTS (
+        SELECT 1 FROM productrequests pr
+        WHERE pr.product_id = p.id
+        AND pr.requester_email = #{email}
+        AND pr.approval_status = '승인'  <!-- 승인된 사용자만 조회 가능 -->
+        )
+        );
+    </select>
+
+    <!-- 승인된 요청만 카운트하는 쿼리 -->
+    <select id="getCurrentParticipants" parameterType="long" resultType="int">
+        SELECT COUNT(*) FROM productrequests
+        WHERE product_id = #{productId} AND approval_status = '승인';
+    </select>
+    <!-- 특정 카테고리 상품 조회 + 정렬 -->
+    <select id="findFilteredProducts" resultMap="ProductWithImagesMap">
+        SELECT
+        p.*,
+        u.nickname,
+        u.bio,
+        p.days,
+        COALESCE(pd.dopamine, 50) AS dopamine,
+        pi.image_path
+        FROM products p
+        LEFT JOIN users u ON p.email = u.email
+        LEFT JOIN productimages pi ON p.id = pi.product_id
+        LEFT JOIN (
+        SELECT email, SUM(dopamine) AS dopamine
+        FROM pointsdopamineactivity
+        GROUP BY email
+        ) pd ON u.email = pd.email
+        WHERE p.is_visible = TRUE
+        <if test="categoryId != null">
+            AND p.category_id = #{categoryId}
+        </if>
+        <choose>
+            <when test="sort == 'price'">
+                ORDER BY p.price
+            </when>
+            <when test="sort == 'createdAt'">
+                ORDER BY p.created_at DESC
+            </when>
+            <otherwise>
+                ORDER BY p.id DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 내가 등록한 상품 목록 조회 (구매만) -->
+    <select id="findMyRegisteredBuyProducts" parameterType="string" resultMap="ProductWithImagesMap">
+        SELECT
+            p.*,
+            u.nickname,
+            u.bio,
+            p.days,
+            COALESCE(pd.dopamine, 50) AS dopamine,
+            pi.image_path
+        FROM products p
+                 LEFT JOIN users u ON p.email = u.email
+                 LEFT JOIN productimages pi ON p.id = pi.product_id
+                 LEFT JOIN (
+            SELECT email, SUM(dopamine) AS dopamine
+            FROM pointsdopamineactivity
+            GROUP BY email
+        ) pd ON u.email = pd.email
+        WHERE p.email = #{email} AND p.registration_type = '구매' AND p.is_visible = TRUE
+        ORDER BY p.created_at DESC;
+    </select>
+
+    <!-- 내가 등록한 상품 목록 조회 (판매만) -->
+    <select id="findMyRegisteredSellProducts" parameterType="string" resultMap="ProductWithImagesMap">
+        SELECT
+            p.*,
+            u.nickname,
+            u.bio,
+            p.days,
+            COALESCE(pd.dopamine, 50) AS dopamine,
+            pi.image_path
+        FROM products p
+                 LEFT JOIN users u ON p.email = u.email
+                 LEFT JOIN productimages pi ON p.id = pi.product_id
+                 LEFT JOIN (
+            SELECT email, SUM(dopamine) AS dopamine
+            FROM pointsdopamineactivity
+            GROUP BY email
+        ) pd ON u.email = pd.email
+        WHERE p.email = #{email} AND p.registration_type = '판매' AND p.is_visible = TRUE
+        ORDER BY p.created_at DESC;
+    </select>
+
+    <!-- 내가 요청한 상품 목록 조회 (구매 요청만) -->
+    <select id="findMyRequestedBuyProducts" parameterType="string" resultMap="ProductWithImagesMap">
+        SELECT
+            p.*,
+            u.nickname,
+            u.bio,
+            p.days,
+            COALESCE(pd.dopamine, 50) AS dopamine,
+            pi.image_path
+        FROM products p
+                 JOIN productrequests pr ON p.id = pr.product_id
+                 JOIN users u ON p.email = u.email
+                 LEFT JOIN productimages pi ON p.id = pi.product_id
+                 LEFT JOIN (
+            SELECT email, SUM(dopamine) AS dopamine
+            FROM pointsdopamineactivity
+            GROUP BY email
+        ) pd ON u.email = pd.email
+        WHERE pr.requester_email = #{email} AND p.is_visible = TRUE
+        ORDER BY pr.created_at DESC;
+    </select>
+
+    <!-- 내가 요청한 상품 목록 조회 (판매 요청만) -->
+    <select id="findMyRequestedSellProducts" parameterType="string" resultMap="ProductWithImagesMap">
+        SELECT
+            p.*,
+            u.nickname,
+            u.bio,
+            p.days,
+            COALESCE(pd.dopamine, 50) AS dopamine,
+            pi.image_path
+        FROM products p
+                 JOIN productrequests pr ON p.id = pr.product_id
+                 JOIN users u ON p.email = u.email
+                 LEFT JOIN productimages pi ON p.id = pi.product_id
+                 LEFT JOIN (
+            SELECT email, SUM(dopamine) AS dopamine
+            FROM pointsdopamineactivity
+            GROUP BY email
+        ) pd ON u.email = pd.email
+        WHERE pr.requester_email = #{email} AND p.is_visible = TRUE
+        ORDER BY pr.created_at DESC;
+    </select>
+
+    <!-- 특정 사용자가 등록한 상품 목록 조회 -->
+    <select id="findProductsByEmailAndType" parameterType="map" resultMap="ProductWithImagesMap">
+        SELECT
+        p.*,
+        u.nickname,
+        u.bio,
+        p.days,
+        COALESCE(pd.dopamine, 50) AS dopamine,
+        pi.image_path
+        FROM products p
+        LEFT JOIN users u ON p.email = u.email
+        LEFT JOIN productimages pi ON p.id = pi.product_id
+        LEFT JOIN (
+        SELECT email, SUM(dopamine) AS dopamine
+        FROM pointsdopamineactivity
+        GROUP BY email
+        ) pd ON u.email = pd.email
+        WHERE p.email = #{email} AND p.is_visible = TRUE
+        AND p.registration_type IN
+        <foreach item="type" collection="types" open="(" separator="," close=")">
+            #{type}
+        </foreach>
+        ORDER BY p.created_at DESC;
+    </select>
+
+    <!-- 전체 상품 조회 (상품별 대표 이미지 포함) //상품 등록자는 마감된 상품도 조회 가능하게 변경-->
+    <select id="findAll" parameterType="string" resultMap="ProductWithImagesMap">
+        SELECT
+        p.*,
+        u.nickname,
+        u.bio,
+        p.days,
+        COALESCE(pd.dopamine, 50) AS dopamine,  <!-- 도파민 추가 -->
+        pi.image_path
+        FROM products p
+        LEFT JOIN users u ON p.email = u.email
+        LEFT JOIN productimages pi ON p.id = pi.product_id
+        LEFT JOIN (  <!-- 도파민 테이블 JOIN 추가 -->
+        SELECT email, SUM(dopamine) AS dopamine
+        FROM pointsdopamineactivity
+        GROUP BY email
+        ) pd ON u.email = pd.email
+        WHERE p.is_visible = TRUE
+        <if test="email != null">
+            OR p.email = #{email}  <!-- 로그인한 사용자는 본인이 등록한 상품도 조회 가능 -->
+        </if>
+        ORDER BY p.id DESC;
+    </select>
+
+    <!-- 사용자의 위치 기반으로 특정 반경 내(유동적 거리) 있는 상품을 조회하는 쿼리 -->
+    <select id="findNearbyProducts" resultType="com.example.demo.dto.Market.ProductResponse">
+        SELECT
+        p.*,
+        u.nickname,
+        u.bio,
+        COALESCE(pd.dopamine, 50) AS dopamine,
+        pi.image_path,
+        (6371 * acos(
+        cos(radians(#{latitude})) * cos(radians(p.latitude)) *
+        cos(radians(p.longitude) - radians(#{longitude})) +
+        sin(radians(#{latitude})) * sin(radians(p.latitude))
+        )) AS distance
+        FROM Products p
+        LEFT JOIN users u ON p.email = u.email
+        LEFT JOIN productimages pi ON p.id = pi.product_id
+        LEFT JOIN (
+        SELECT email, SUM(dopamine) AS dopamine
+        FROM pointsdopamineactivity
+        GROUP BY email
+        ) pd ON u.email = pd.email
+        WHERE p.transaction_type = '대면'
+        HAVING distance &lt;= #{distance} <!-- 'HAVING'으로 거리 필터링 -->
+        ORDER BY distance ASC;
+    </select>
+
+    <!-- 특정 상품에 대한 사용자의 승인 상태 조회 -->
+    <select id="findApprovalStatus" resultType="string">
+        SELECT approval_status
+        FROM productrequests
+        WHERE requester_email = #{email}
+          AND product_id = #{productId}
+        ORDER BY created_at DESC
+        LIMIT 1;
+    </select>
+
+
+    <!-- 결과 매핑: 이미지 리스트와 대표 이미지 포함 -->
+    <resultMap id="ProductWithImagesMap" type="com.example.demo.model.Market.Product">
+        <id property="id" column="id"/>
+        <result property="productCode" column="product_code"/>
+        <result property="title" column="title"/>
+        <result property="description" column="description"/>
+        <result property="price" column="price"/>
+        <result property="email" column="email"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="hobbyId" column="hobby_id"/>
+        <result property="transactionType" column="transaction_type"/>
+        <result property="registrationType" column="registration_type"/>
+        <result property="maxParticipants" column="max_participants"/>
+        <result property="currentParticipants" column="current_participants"/>
+        <result property="startDate" column="start_date"/>
+        <result property="endDate" column="end_date"/>
+        <result property="latitude" column="latitude"/>
+        <result property="longitude" column="longitude"/>
+        <result property="meetingPlace" column="meeting_place"/>
+        <result property="address" column="address"/>
+        <result property="isVisible" column="is_visible"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="days" column="days"/>
+
+        <!-- 유저 정보 추가 -->
+        <result property="nickname" column="nickname"/>
+        <result property="bio" column="bio"/>
+        <result property="dopamine" column="dopamine"/>
+
+        <!-- 대표 이미지 추가 -->
+        <result property="thumbnailPath" column="thumbnail_path"/>
+
+        <!-- 이미지 리스트 -->
+        <collection property="imagePaths" ofType="java.lang.String">
+            <result column="image_path"/>
+        </collection>
+    </resultMap>
+
+</mapper>

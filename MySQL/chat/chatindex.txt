@@ -1,0 +1,38 @@
+-- 안전한 인덱스 생성을 위한 저장 프로시저
+DELIMITER $$
+DROP PROCEDURE IF EXISTS create_index_if_not_exists$$
+CREATE PROCEDURE create_index_if_not_exists(
+    IN p_table_name VARCHAR(255),
+    IN p_index_name VARCHAR(255),
+    IN p_index_def VARCHAR(1000)
+)
+BEGIN
+    DECLARE index_exists INT DEFAULT 0;
+    
+    SELECT COUNT(1) INTO index_exists
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+    AND table_name = p_table_name
+    AND index_name = p_index_name;
+    
+    IF index_exists = 0 THEN
+        SET @sql = CONCAT('CREATE INDEX ', p_index_name, ' ON ', p_table_name, ' ', p_index_def);
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+        
+        SELECT CONCAT('인덱스 생성 완료: ', p_index_name, ' on ', p_table_name) AS message;
+    ELSE
+        SELECT CONCAT('인덱스가 이미 존재합니다: ', p_index_name) AS message;
+    END IF;
+END$$
+DELIMITER ;
+
+-- 안전하게 인덱스 생성
+CALL create_index_if_not_exists('chatrooms', 'idx_product', '(product_id)');
+CALL create_index_if_not_exists('chatrooms', 'idx_buyer', '(buyer_email)');
+CALL create_index_if_not_exists('chatrooms', 'idx_chatroom_lastupdate', '(last_message_time DESC)');
+CALL create_index_if_not_exists('messages', 'idx_chatroom', '(chatroom_id)');
+CALL create_index_if_not_exists('messages', 'idx_sender', '(sender_email)');
+CALL create_index_if_not_exists('messages', 'idx_chatroom_sent', '(chatroom_id, sent_at DESC)');
+CALL create_index_if_not_exists('messages', 'idx_messages_isread', '(chatroom_id, sender_email, is_read)');

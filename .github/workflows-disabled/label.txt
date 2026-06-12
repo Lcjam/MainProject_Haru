@@ -1,0 +1,169 @@
+name: Deploy All Services
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  docker-login:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Docker Hub 로그인
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+  build-and-deploy-fastapi:
+    runs-on: ubuntu-latest
+    needs: docker-login
+    steps:
+      - uses: actions/checkout@v2
+      - name: Docker Hub 로그인
+        run: |
+          echo ${{ secrets.DOCKER_HUB_TOKEN }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+      - name: Build fastapi AI Service
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/fastapi-ai:latest ./fastapi
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/fastapi-ai:latest
+
+  build-and-deploy-gateway:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy-fastapi
+    steps:
+      - uses: actions/checkout@v2
+      - name: Docker Hub 로그인
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+      - name: Build Spring Gateway
+        run: |
+          cd GateWay
+          chmod +x ./gradlew
+          ./gradlew clean build
+      - name: Build & Push Gateway Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/gateway-service:latest ./GateWay
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/gateway-service:latest
+
+  build-and-deploy-core:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy-gateway
+    steps:
+      - uses: actions/checkout@v2
+      - name: Docker Hub 로그인
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+      - name: Build Core Spring Service
+        run: |
+          cd CoreService
+          chmod +x ./gradlew
+          ./gradlew clean build
+      - name: Build & Push Core Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/core-service:latest ./CoreService
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/core-service:latest
+
+  build-and-deploy-assist:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy-core
+    steps:
+      - uses: actions/checkout@v2
+      - name: Docker Hub 로그인
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+      - name: Build Assist Spring Service
+        run: |
+          cd AssistService
+          chmod +x ./gradlew
+          ./gradlew clean build
+      - name: Build & Push Assist Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/assist-service:latest ./AssistService
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/assist-service:latest
+
+  build-and-deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy-assist
+    steps:
+      - uses: actions/checkout@v2
+      - name: Docker Hub 로그인
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20'
+      - name: Build Frontend
+        run: |
+          cd vite-react-teamsketch
+          npm install
+          npm run build
+      - name: Build & Push Frontend Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:latest ./vite-react-teamsketch
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:latest
+
+  build-and-deploy-nginx:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy-frontend
+    steps:
+      - uses: actions/checkout@v2
+      - name: Docker Hub 로그인
+        run: |
+          echo ${{ secrets.DOCKER_HUB_TOKEN }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+      - name: Build & Push Nginx Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/nginx-service:latest ./vite-react-teamsketch/nginx
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/nginx-service:latest
+
+  deploy-locally:
+    runs-on: ubuntu-latest
+    needs: [build-and-deploy-nginx]
+    steps:
+      - name: Deploy Services Locally
+        run: |
+          # 네트워크 생성 (이미 존재하면 무시)
+          docker network create teamsketch-network || true
+          
+          # 이미지 풀
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/fastapi-ai:latest
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/gateway-service:latest
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/core-service:latest
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/assist-service:latest
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:latest
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/nginx-service:latest
+          
+          # 기존 컨테이너 중지 및 제거
+          docker stop fastapi-container gateway-container core-container assist-container frontend-container nginx-container || true
+          docker rm fastapi-container gateway-container core-container assist-container frontend-container nginx-container || true
+          
+          # 새 컨테이너 실행
+          docker run -d --name fastapi-container --network teamsketch-network -p 8001:8001 ${{ secrets.DOCKER_HUB_USERNAME }}/fastapi-ai:latest
+          docker run -d --name gateway-container --network teamsketch-network -p 8080:8080 ${{ secrets.DOCKER_HUB_USERNAME }}/gateway-service:latest
+          docker run -d --name core-container --network teamsketch-network -p 8081:8081 ${{ secrets.DOCKER_HUB_USERNAME }}/core-service:latest
+          docker run -d --name assist-container --network teamsketch-network -p 8082:8082 ${{ secrets.DOCKER_HUB_USERNAME }}/assist-service:latest
+          docker run -d --name frontend-container --network teamsketch-network -p 3000:3000 ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:latest
+          docker run -d --name nginx-container --network teamsketch-network -p 80:80 ${{ secrets.DOCKER_HUB_USERNAME }}/nginx-service:latest

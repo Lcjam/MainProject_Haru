@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.mapper.board.BoardMapper">
+    
+    <!-- 게시판 생성 -->
+    <insert id="createBoard" parameterType="com.example.demo.model.board.Board" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO boards (
+            name, description, image_path, host_email, created_at, updated_at, status
+        ) VALUES (
+            #{name}, #{description}, #{imagePath}, #{hostEmail}, NOW(), NOW(), #{status}
+        )
+    </insert>
+    
+    <!-- ID로 게시판 조회 -->
+    <select id="findBoardById" resultMap="boardResultMap">
+        SELECT 
+            b.*, u.nickname as host_name,
+            (SELECT COUNT(*) FROM board_members WHERE board_id = b.id AND status = 'ACTIVE') as member_count
+        FROM 
+            boards b
+            LEFT JOIN users u ON b.host_email = u.email
+        WHERE 
+            b.id = #{id}
+            AND b.status != 'DELETED'
+    </select>
+    
+    <!-- 모든 게시판 조회 -->
+    <select id="findAllBoards" resultMap="boardResultMap">
+        SELECT 
+            b.*, u.nickname as host_name,
+            (SELECT COUNT(*) FROM board_members WHERE board_id = b.id AND status = 'ACTIVE') as member_count
+        FROM 
+            boards b
+            LEFT JOIN users u ON b.host_email = u.email
+        WHERE 
+            b.status != 'DELETED'
+        ORDER BY 
+            b.created_at DESC
+    </select>
+    
+    <!-- 호스트의 게시판 조회 -->
+    <select id="findBoardsByHostEmail" resultMap="boardResultMap">
+        SELECT 
+            b.*, u.nickname as host_name,
+            (SELECT COUNT(*) FROM board_members WHERE board_id = b.id AND status = 'ACTIVE') as member_count
+        FROM 
+            boards b
+            LEFT JOIN users u ON b.host_email = u.email
+        WHERE 
+            b.host_email = #{hostEmail}
+            AND b.status != 'DELETED'
+        ORDER BY 
+            b.created_at DESC
+    </select>
+    
+    <!-- 사용자가 멤버인 게시판 조회 -->
+    <select id="findBoardsByMemberEmail" resultMap="boardResultMap">
+        SELECT 
+            b.*, u.nickname as host_name,
+            (SELECT COUNT(*) FROM board_members WHERE board_id = b.id AND status = 'ACTIVE') as member_count
+        FROM 
+            boards b
+            JOIN board_members bm ON b.id = bm.board_id
+            LEFT JOIN users u ON b.host_email = u.email
+        WHERE 
+            bm.user_email = #{memberEmail}
+            AND bm.status = 'ACTIVE'
+            AND b.status != 'DELETED'
+        ORDER BY 
+            b.created_at DESC
+    </select>
+    
+    <!-- 게시판 정보 업데이트 -->
+    <update id="updateBoard" parameterType="com.example.demo.model.board.Board">
+        UPDATE boards
+        SET 
+            name = #{name},
+            description = #{description},
+            updated_at = NOW()
+        WHERE 
+            id = #{id}
+    </update>
+    
+    <!-- 게시판 상태 변경 -->
+    <update id="updateBoardStatus">
+        UPDATE boards
+        SET 
+            status = #{status},
+            updated_at = NOW()
+        WHERE 
+            id = #{id}
+    </update>
+    
+    <!-- 게시판 이미지 업데이트 -->
+    <update id="updateBoardImage">
+        UPDATE boards
+        SET 
+            image_path = #{imagePath},
+            updated_at = NOW()
+        WHERE 
+            id = #{id}
+    </update>
+    
+    <!-- 게시판 삭제 (소프트 삭제) -->
+    <update id="deleteBoard">
+        UPDATE boards
+        SET 
+            status = 'DELETED',
+            updated_at = NOW()
+        WHERE 
+            id = #{id}
+    </update>
+    
+    <!-- 게시판 멤버 수 조회 -->
+    <select id="countBoardMembers" resultType="int">
+        SELECT COUNT(*)
+        FROM board_members
+        WHERE board_id = #{boardId}
+        AND status = 'ACTIVE'
+    </select>
+    
+    <!-- 결과 매핑 -->
+    <resultMap id="boardResultMap" type="com.example.demo.model.board.Board">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="imagePath" column="image_path"/>
+        <result property="hostEmail" column="host_email"/>
+        <result property="hostName" column="host_name"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="status" column="status"/>
+        <result property="memberCount" column="member_count"/>
+    </resultMap>
+    
+</mapper>

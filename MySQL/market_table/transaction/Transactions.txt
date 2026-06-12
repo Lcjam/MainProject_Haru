@@ -1,0 +1,16 @@
+CREATE TABLE Transactions (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    product_id BIGINT NOT NULL,  -- 거래된 상품 (FK)
+    buyer_email VARCHAR(255) NOT NULL, -- 구매자 (Users 테이블 참조)
+    seller_email VARCHAR(255) NOT NULL, -- 판매자 (Users 테이블 참조)
+    transaction_status ENUM('진행중', '완료', '취소') DEFAULT '진행중', -- 거래 상태
+    transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP, -- 거래 일시
+    payment_status ENUM('완료', '미완료') DEFAULT '미완료', -- 결제 상태
+    price INT NOT NULL, -- 거래 가격 (포인트)
+    description TEXT, -- 거래 상세 설명
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE, // 참조
+    FOREIGN KEY (buyer_email) REFERENCES Users(email) ON DELETE CASCADE, // 참조
+    FOREIGN KEY (seller_email) REFERENCES Users(email) ON DELETE CASCADE // 참조
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

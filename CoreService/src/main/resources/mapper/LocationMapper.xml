@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.mapper.LocationMapper">
+
+    <!-- 위치 정보 저장 -->
+    <insert id="saveLocation" parameterType="com.example.demo.model.Location">
+        INSERT INTO locations (
+            chatroom_id, email, latitude, longitude, timestamp,
+            created_at, updated_at
+        ) VALUES (
+            #{chatroomId}, #{email}, #{latitude}, #{longitude}, #{timestamp},
+            NOW(), NOW()
+        )
+    </insert>
+
+    <!-- 채팅방의 최근 위치 정보 조회 -->
+    <select id="getRecentLocations" resultMap="locationResultMap">
+        SELECT 
+            l.*,
+            u.nickname as user_nickname
+        FROM 
+            locations l
+            JOIN users u ON l.email = u.email
+        WHERE 
+            l.chatroom_id = #{chatroomId}
+            AND l.timestamp >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+        GROUP BY 
+            l.email, l.location_id, l.chatroom_id, l.latitude, l.longitude,
+            l.timestamp, l.created_at, l.updated_at, u.nickname
+        HAVING 
+            l.timestamp = MAX(l.timestamp)
+        ORDER BY 
+            l.timestamp DESC
+    </select>
+
+    <!-- 특정 사용자의 마지막 위치 조회 -->
+    <select id="getLastLocation" resultMap="locationResultMap">
+        SELECT 
+            l.*,
+            u.nickname as user_nickname
+        FROM 
+            locations l
+            JOIN users u ON l.email = u.email
+        WHERE 
+            l.chatroom_id = #{chatroomId}
+            AND l.email = #{email}
+        ORDER BY 
+            l.timestamp DESC
+        LIMIT 1
+    </select>
+
+    <!-- 오래된 위치 데이터 삭제 -->
+    <delete id="deleteOldLocations">
+        DELETE FROM locations 
+        WHERE timestamp &lt; DATE_SUB(NOW(), INTERVAL 24 HOUR)
+    </delete>
+
+    <!-- ResultMap 정의 -->
+    <resultMap id="locationResultMap" type="com.example.demo.model.Location">
+        <id property="locationId" column="location_id"/>
+        <result property="chatroomId" column="chatroom_id"/>
+        <result property="email" column="email"/>
+        <result property="latitude" column="latitude"/>
+        <result property="longitude" column="longitude"/>
+        <result property="timestamp" column="timestamp"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="userNickname" column="user_nickname"/>
+    </resultMap>
+
+</mapper> 

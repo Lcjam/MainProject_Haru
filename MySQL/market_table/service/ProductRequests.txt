@@ -1,0 +1,19 @@
+CREATE TABLE ProductRequests (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    product_id BIGINT NOT NULL,  -- Products 테이블 참조 (FK)
+    requester_email VARCHAR(255) NOT NULL,  -- 요청한 사용자의 이메일 (JWT에서 추출)
+    status ENUM('대기', '완료') DEFAULT '대기',  -- 진행 상황 (대기 / 완료)
+    approval_status ENUM('승인', '미승인') DEFAULT '미승인', -- 승인 여부 (승인 / 미승인)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    -- 중복 방지를 위한 유니크 제약조건
+    UNIQUE KEY uq_request_unique (requester_email, product_id),
+    
+    FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE RESTRICT,
+    FOREIGN KEY (requester_email) REFERENCES Users(email) ON DELETE CASCADE  -- 요청자 이메일 FK
+)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+// ProductRequests 테이블에서 product_id만 저장하고,
+// 요청한 사람의 이메일은 API 요청 시 JWT 토큰에서 추출
+// product_id를 이용해 Products 테이블에서 등록한 이메일을 조회
+// 상품 등록자의 이메일을 찾아 요청한 사람에게 알림을 전송

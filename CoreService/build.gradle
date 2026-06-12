@@ -75,4 +75,9 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 }
 
+// JUnit 5 (Jupiter) 플랫폼 사용 — 없으면 JUnit4 러너라 Jupiter 테스트를 못 찾는다
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
 

@@ -3,8 +3,12 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
-export default defineConfig({
-  base: '/', 
+export default defineConfig(({ mode }) => ({
+  base: '/',
+  // 프로덕션 빌드에서만 console/debugger 제거 (개발 중에는 로그 유지, 호출부 183곳을 건드리지 않아 안전)
+  esbuild: {
+    drop: mode === 'production' ? ['console', 'debugger'] : []
+  },
   plugins: [
     react(),
     VitePWA({
@@ -141,4 +145,4 @@ export default defineConfig({
       }
     },
   },
-})
+}))

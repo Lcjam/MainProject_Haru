@@ -401,7 +401,7 @@ public class ProductService {
         Double longitude = userLocationMapper.getUserLatestLocation(email).getLongitude();
 
         // 디버그 확인
-        System.out.println("Received - latitude: " + latitude + ", longitude: " + longitude + ", distance: " + distance);
+        log.debug("Received - latitude: " + latitude + ", longitude: " + longitude + ", distance: " + distance);
 
         // 필수 값 검증 (누락된 값이 있으면 즉시 반환)
         if (latitude == null || latitude == 0.0) {

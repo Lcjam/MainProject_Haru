@@ -26,7 +26,7 @@ public class CloudOCRServiceImpl {
     private String apiUrl;
 
     public String processImage(MultipartFile file) {
-        System.out.println("=== CloudOCRService 이미지 처리 시작 ===");
+        log.debug("=== CloudOCRService 이미지 처리 시작 ===");
         try {
             // 1. 파일 형식 검증
             String fileFormat = file.getContentType().split("/")[1].toLowerCase();

@@ -1,4 +1,5 @@
 package com.example.demo.controller;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,10 +14,11 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/assist/upload")
+@Slf4j
 public class UploadProfileController {
     @PostMapping("/profile")
     public ResponseEntity<CommonResponseDTO> uploadProfile(@RequestPart("file") MultipartFile file) {
-        System.out.println("Profile uploaded successfully");
+        log.debug("Profile uploaded successfully");
         return ResponseEntity.ok(CommonResponseDTO.builder()
                 .status("success")
                 .data(new CommonResponseDTO.Data("Profile uploaded successfully", ""))

@@ -1,4 +1,5 @@
 package com.example.demo.controller;
+import lombok.extern.slf4j.Slf4j;
 
 import com.example.demo.serviceimpl.SmsService;
 
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/assist/sms")
 
+@Slf4j
 public class SmsController {
 
   @Autowired
@@ -33,18 +35,18 @@ public class SmsController {
 
   @PostMapping("/verify-otp")
   public ResponseEntity<Map<String, Object>> verifyOtp(@RequestBody Map<String, String> requestBody) {
-    System.out.println("요청받은 데이터: " + requestBody);
+    log.debug("요청받은 데이터: " + requestBody);
 
     String phoneNumber = requestBody.get("phoneNumber");
     String otp = requestBody.get("otp");
-    System.out.println("phoneNumber: " + phoneNumber + ", otp: " + otp);
+    log.debug("phoneNumber: " + phoneNumber + ", otp: " + otp);
 
     boolean isVerified = smsService.verifyCode(phoneNumber, otp);
 
     Map<String, Object> responseBody = new HashMap<>();
     responseBody.put("success", isVerified);
     responseBody.put("message", isVerified ? "success" : "fail");
-    System.out.println("responseBody: " + responseBody);
+    log.debug("responseBody: " + responseBody);
 
     return ResponseEntity.ok(responseBody);
   }

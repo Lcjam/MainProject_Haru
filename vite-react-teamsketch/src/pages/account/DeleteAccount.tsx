@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useDeleteAccount } from '../../services/api/authAPI';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '../../utils/errorMessage';
 import Loading from '../../components/common/Loading';
 import BaseButton from '../../components/common/BaseButton';
 
@@ -35,9 +36,9 @@ const DeleteAccount = () => {
         return;
       }
       setIsLoading(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setIsLoading(false);
-      toast.error(error);
+      toast.error(getErrorMessage(error));
     }
   };
 

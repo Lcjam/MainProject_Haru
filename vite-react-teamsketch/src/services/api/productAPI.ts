@@ -1,5 +1,6 @@
 import { axiosInstance, uploadInstance } from './axiosInstance';
 import { apiConfig } from './apiConfig';
+import { getErrorStatus } from '../../utils/errorMessage';
 import {
   IProduct,
   IProductRegisterRequest,
@@ -134,9 +135,9 @@ export const getProductImage = async (imageId: number): Promise<Blob | null> => 
     count2++;
     console.log('상품 이미지 조회 성공:', imageId, 'count:', count2);
     return response.data;
-  } catch (err: any) {
+  } catch (err: unknown) {
     // 404 에러는 자세한 로그를 출력하지 않음
-    if (err.response && err.response.status === 404) {
+    if (getErrorStatus(err) === 404) {
       console.log(`이미지 ID ${imageId}를 찾을 수 없습니다.`);
     } else {
       console.error('상품 이미지 조회 에러:', err);

@@ -50,7 +50,8 @@ const signupSlice = createSlice({
         value: string 
       }>
     ) => {
-      (state.formData[action.payload.name] as any) = action.payload.value;
+      (state.formData as Record<keyof SignupForm, unknown>)[action.payload.name] =
+        action.payload.value;
     },
     setValidationError: (state, action: PayloadAction<{ field: string; message: string }>) => {
       state.validationErrors[action.payload.field as keyof ValidationErrors] =

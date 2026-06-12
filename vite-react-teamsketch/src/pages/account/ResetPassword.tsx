@@ -7,6 +7,7 @@ import { validatePassword } from '../../utils/validation';
 import { useAppSelector } from '../../store/hooks';
 import { toast } from 'react-toastify'
 import { usePasswordChangeNT } from '../../services/api/authAPI';
+import { getErrorMessage } from '../../utils/errorMessage';
 import { resetPasswordInfo } from '../../store/slices/passwordChangeSlice';
 import { useAppDispatch } from '../../store/hooks';
 // , passwordChangeNoneToken
@@ -98,12 +99,11 @@ const ResetPassword = () => {
                 // 서버에서 success: false로 응답한 경우
                 toast.error(response.message || '비밀번호 변경에 실패했습니다.');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('비밀번호 변경 오류:', error);
-            
+
             // 서버 응답에서 에러 메시지 추출
-            const errorMessage = error.response?.data?.message || 
-                               '비밀번호 변경 중 오류가 발생했습니다.';
+            const errorMessage = getErrorMessage(error, '비밀번호 변경 중 오류가 발생했습니다.');
             
             toast.error(errorMessage);
         }

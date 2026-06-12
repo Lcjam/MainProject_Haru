@@ -128,7 +128,7 @@ export const getChatRoomDetail = async (chatroomId: number): Promise<ChatRoomDet
 };
 
 // 판매자가 '함께하기' 버튼 클릭 시 구매 요청 승인 함수
-export const approveChatMember = async (chatroomId: number): Promise<any> => {
+export const approveChatMember = async (chatroomId: number): Promise<unknown> => {
   try {
     const response = await axiosInstance.post(
       apiConfig.endpoints.core.approveChatMember(chatroomId)
@@ -148,7 +148,7 @@ export const approveChatMember = async (chatroomId: number): Promise<any> => {
 };
 
 // 메시지 읽음 상태 업데이트 함수
-export const updateMessagesRead = async (chatroomId: number): Promise<any> => {
+export const updateMessagesRead = async (chatroomId: number): Promise<unknown> => {
   try {
     const response = await axiosInstance.put(
       apiConfig.endpoints.core.updateMessagesRead(chatroomId)
@@ -171,7 +171,7 @@ export const updateMessagesRead = async (chatroomId: number): Promise<any> => {
 export const sendChatMessage = async (
   roomId: number,
   message: string
-): Promise<any> => {
+): Promise<unknown> => {
   try {
     const response = await axiosInstance.post(
       apiConfig.endpoints.core.sendMessage(roomId),

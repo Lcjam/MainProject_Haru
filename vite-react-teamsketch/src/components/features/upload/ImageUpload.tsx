@@ -9,7 +9,7 @@ import { updateProfileImage } from '../../../store/slices/userSlice';
 
 // test
 interface ImageUploadProps {
-  onUpload?: (formData: FormData) => Promise<any>;
+  onUpload?: (formData: FormData) => Promise<unknown>;
   onFileSelect?: (file: File) => void;
   className?: string;
   type?: ImageUploadType;

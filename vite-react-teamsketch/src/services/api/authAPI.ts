@@ -3,6 +3,7 @@ import { axiosInstance } from './axiosInstance';
 import { apiConfig } from './apiConfig';
 import { SignupForm, ProfileUpdateRequest } from '../../types/auth';
 import { IPasswordChange } from '../../types/passwordChange'
+import { getErrorMessage, getErrorCode } from '../../utils/errorMessage';
 
 
 interface LoginCredentials {
@@ -257,13 +258,14 @@ export const usePasswordChangeNT = () => {
 export const useSignup = () => {
   return useMutation({
     mutationFn: signupApi,
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       // axiosInstance에서 기본 에러 처리를 하지만,
       // 회원가입 특화된 에러 처리가 필요한 경우 여기서 처리
-      if (error.response?.data?.code === 'DUPLICATE_EMAIL') {
+      const code = getErrorCode(error);
+      if (code === 'DUPLICATE_EMAIL') {
         throw new Error('이미 사용 중인 이메일입니다.');
       }
-      if (error.response?.data?.code === 'DUPLICATE_ID') {
+      if (code === 'DUPLICATE_ID') {
         throw new Error('이미 사용 중인 아이디입니다.');
       }
       throw error;
@@ -289,9 +291,9 @@ export const useInfoApi = () => {
 export const useSendSms = () => {
   return useMutation({
     mutationFn: sendSmsApi,
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error('SMS 전송 실패:', error);
-      throw new Error(error.response?.data?.message || 'SMS 전송에 실패했습니다.');
+      throw new Error(getErrorMessage(error, 'SMS 전송에 실패했습니다.'));
     }
   });
 };
@@ -300,9 +302,9 @@ export const useSendSms = () => {
 export const useVerifyOtp = () => {
   return useMutation({
     mutationFn: verifyOtpApi,
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error('OTP 검증 실패:', error);
-      throw new Error(error.response?.data?.message || '인증번호 확인에 실패했습니다.');
+      throw new Error(getErrorMessage(error, '인증번호 확인에 실패했습니다.'));
     }
   });
 };

@@ -49,7 +49,7 @@ const MyLocation = () => {
       } else {
         toast.error('위도와 경도를 선택해주세요.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('위치 선택이 잘못되었습니다.');
       console.error(error);
     } finally {

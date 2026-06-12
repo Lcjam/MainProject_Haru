@@ -7,7 +7,7 @@ interface OCRResult {
   status: string;
   data: {
     message: string;
-    response: any;
+    response: string;
   };
   code: string;
 }

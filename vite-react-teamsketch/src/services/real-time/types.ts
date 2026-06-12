@@ -51,7 +51,7 @@ export interface INotification {
   message: string;
   timestamp?: string;
   type?: string;
-  data?: any;
+  data?: unknown;
 }
 
 export interface WebSocketConfig {

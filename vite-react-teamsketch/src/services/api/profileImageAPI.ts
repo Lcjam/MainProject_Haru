@@ -2,6 +2,7 @@ import { axiosInstance, uploadInstance } from './axiosInstance';
 import { apiConfig } from './apiConfig';
 import { FileResponse } from '../../types/fileResponse';
 import { useQuery } from '@tanstack/react-query';
+import { getErrorMessage, getErrorStatus } from '../../utils/errorMessage';
 
 const getImageFilename = (imageUrl: string): string | null => {
   if (!imageUrl) return null; // URL이 없을 경우 예외 처리
@@ -69,8 +70,8 @@ export const getProfileImage = async (): Promise<FileResponse | null> => {
     console.error('프로필 이미지 조회 에러:', error);
     console.error('에러 상세:', {
       message: error instanceof Error ? error.message : '알 수 없는 에러',
-      status: (error as any).response?.status,
-      data: (error as any).response?.data
+      status: getErrorStatus(error),
+      data: getErrorMessage(error)
     });
     return null;
   }
@@ -157,8 +158,8 @@ export const getUserProfileImageByNickname = async (nickname: string): Promise<F
     console.error('사용자 프로필 조회 에러:', error);
     console.error('에러 상세:', {
       message: error instanceof Error ? error.message : '알 수 없는 에러',
-      status: (error as any).response?.status,
-      data: (error as any).response?.data
+      status: getErrorStatus(error),
+      data: getErrorMessage(error)
     });
     return null;
   }

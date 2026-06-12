@@ -17,9 +17,18 @@ import ProfileManageLayout from '../../components/layout/ProfileManageLayout';
 import TextAreaInput from '../../components/forms/textarea/TextAreaInput';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '../../utils/errorMessage';
 interface UserHobby {
   hobbyId: number;
   categoryId: number;
+}
+
+/** 서버가 내려주는 취미 항목(이름 포함) 형태 */
+interface ServerHobby {
+  hobbyId: number;
+  hobbyName: string;
+  categoryId: number;
+  categoryName: string;
 }
 
 interface ProfileUpdateRequest {
@@ -91,7 +100,7 @@ const ProfileManage = () => {
               name: updatedProfile.name || user.name,
               nickname: updatedProfile.nickname || user.nickname,
               bio: updatedProfile.bio || user.bio || '',
-              hobby: updatedProfile.hobbies ? updatedProfile.hobbies.map((hobby: any) => ({
+              hobby: updatedProfile.hobbies ? updatedProfile.hobbies.map((hobby: ServerHobby) => ({
                 hobbyId: hobby.hobbyId,
                 hobbyName: hobby.hobbyName,
                 categoryId: hobby.categoryId,
@@ -102,7 +111,7 @@ const ProfileManage = () => {
 
           if (updatedProfile.hobbies) {
             setSelectedHobbies(
-              updatedProfile.hobbies.map((hobby: any) => ({
+              updatedProfile.hobbies.map((hobby: ServerHobby) => ({
                 hobbyId: hobby.hobbyId,
                 categoryId: hobby.categoryId
               }))
@@ -118,8 +127,8 @@ const ProfileManage = () => {
         toast.warning('프로필이 수정되었지만 최신 정보를 불러오지 못했습니다.');
         navigate('/mypage');
       }
-    } catch (err : any) {
-      toast.error(err.response.data.data.message || '프로필 수정 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, '프로필 수정 중 오류가 발생했습니다.'));
       console.error('프로필 수정 에러:', err);
     }
   };

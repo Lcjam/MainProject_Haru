@@ -148,8 +148,10 @@ const App = () => {
       const latestNotification = notifications[notifications.length - 1];
 
       // 타입 가드 함수 추가
-      const isChatMessage = (notification: any): notification is INotification => {
-        return notification.type === 'CHAT_MESSAGE' && notification.chatroomId !== undefined;
+      const isChatMessage = (notification: unknown): notification is INotification => {
+        if (typeof notification !== 'object' || notification === null) return false;
+        const n = notification as Record<string, unknown>;
+        return n.type === 'CHAT_MESSAGE' && n.chatroomId !== undefined;
       };
 
       // 현재 채팅방의 메시지인 경우 알림 무시

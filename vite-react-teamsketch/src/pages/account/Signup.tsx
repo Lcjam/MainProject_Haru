@@ -27,6 +27,7 @@ import { SignupForm, HobbiesRequest } from '../../types/auth';
 import HobbySelect from '../../components/forms/select/HobbySelect';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '../../utils/errorMessage';
 
 const Signup = () => {
   const signupMutation = useSignup();
@@ -123,11 +124,10 @@ const Signup = () => {
       // 회원가입 성공 처리
       toast.success('회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.');
       navigate('/login');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // AxiosError에서 서버 응답 메시지 추출
-      const errorMessage = error.response?.data?.data?.message || 
-                          (error instanceof Error ? error.message : '회원가입 중 오류가 발생했습니다.');
-      
+      const errorMessage = getErrorMessage(error, '회원가입 중 오류가 발생했습니다.');
+
       toast.error(errorMessage);
       console.error('회원가입 에러:', error); // 에러 로깅
     }

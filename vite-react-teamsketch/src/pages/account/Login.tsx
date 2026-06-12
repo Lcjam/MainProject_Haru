@@ -12,8 +12,23 @@ import { google, kakao, naver } from '../../assets/images/login';
 import EmailInput from '../../components/forms/input/EmailInput';
 import LoginPasswordInput from '../../components/forms/input/LoginPasswordInput';
 import { validateEmail, validatePassword } from '../../utils/validation';
+import { getErrorMessage } from '../../utils/errorMessage';
 import { toast } from 'react-toastify';
 import { isIOS } from 'react-device-detect';
+
+/** PWA 설치 프롬프트 이벤트 (표준 DOM lib에 아직 포함되지 않아 직접 선언) */
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
+/** 서버가 내려주는 취미 항목 형태 */
+interface ServerHobby {
+  hobbyId: number;
+  hobbyName: string;
+  categoryId: number;
+  categoryName: string;
+}
 
 const Login = () => {
   const navigate = useNavigate();
@@ -30,13 +45,13 @@ const Login = () => {
     password: ''
   });
 
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
 
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
       setShowInstallButton(true); // 설치 버튼 표시
     });
   }, []);
@@ -44,7 +59,7 @@ const Login = () => {
   const handleInstallClick = () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
-      deferredPrompt.userChoice.then((choiceResult: any) => {
+      deferredPrompt.userChoice.then((choiceResult) => {
         if (choiceResult.outcome === 'accepted') {
           console.log('✅ 앱 설치 완료!');
         } else {
@@ -96,9 +111,9 @@ const Login = () => {
             loginIsLocked: false,
             dopamine: userinfo.data.dopamine || 0,
             points: userinfo.data.points || 0,
-            interest: userinfo.data.hobbies?.map((hobby: any) => hobby.categoryName) || [],
+            interest: userinfo.data.hobbies?.map((hobby: ServerHobby) => hobby.categoryName) || [],
             hobby:
-              userinfo.data.hobbies?.map((hobby: any) => ({
+              userinfo.data.hobbies?.map((hobby: ServerHobby) => ({
                 hobbyId: hobby.hobbyId,
                 hobbyName: hobby.hobbyName,
                 categoryId: hobby.categoryId,
@@ -111,8 +126,8 @@ const Login = () => {
       } else {
         throw new Error(response || '로그인에 실패했습니다.');
       }
-    } catch (err: any) {
-      const errorMessage = err?.response?.data?.data?.message || '알 수 없는 에러가 발생했습니다.';
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err);
       console.error('로그인 에러:', errorMessage);
       toast.error(errorMessage);
     } finally {

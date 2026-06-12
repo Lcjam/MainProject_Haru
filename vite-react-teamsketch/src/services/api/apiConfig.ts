@@ -34,8 +34,7 @@ export const apiConfig = {
       userprod: `${BASE_URL}/core/market/products/users`,
       mylocation:`${BASE_URL}/core/market/users/location`,
       deleteUser: `${BASE_URL}/core/auth/me/withdrawal`,
-      passwordChange:`${BASE_URL}/core/auth/me/password
-`,
+      passwordChange:`${BASE_URL}/core/auth/me/password`,
       passwordChangeNoneToken : `${BASE_URL}/core/auth/me/password/notoken`,
       userinfo: `${BASE_URL}/core/profiles/me`,
       uploadProfile: `${BASE_URL}/core/profiles/me/image`,

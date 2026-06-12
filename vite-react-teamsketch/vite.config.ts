@@ -85,7 +85,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/api\.yourbackend\.com\/.*/i,
+            // 게이트웨이 호스트가 dev/prod 마다 달라지므로 경로(/api/) 기준으로 매칭
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',

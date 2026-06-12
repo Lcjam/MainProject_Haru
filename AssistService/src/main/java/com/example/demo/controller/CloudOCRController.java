@@ -1,4 +1,5 @@
 package com.example.demo.controller;
+import lombok.extern.slf4j.Slf4j;
 
 import com.example.demo.serviceimpl.CloudOCRServiceImpl;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import com.example.demo.dto.CommonResponseDTO;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/assist/cloudocr")
+@Slf4j
 public class CloudOCRController {
 
     private final CloudOCRServiceImpl cloudOCRServiceImpl;
@@ -17,7 +19,7 @@ public class CloudOCRController {
     @PostMapping("/process")
     public ResponseEntity<CommonResponseDTO<String>> processImage(
             @RequestParam("file") MultipartFile file) {
-        System.out.println("CloudOCRController processImage");
+        log.debug("CloudOCRController processImage");
         try {
             String result = cloudOCRServiceImpl.processImage(file);
             return ResponseEntity.ok(CommonResponseDTO.<String>builder()

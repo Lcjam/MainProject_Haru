@@ -1,4 +1,5 @@
 package com.example.demo.config;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,6 +12,7 @@ import com.example.demo.filter.JwtAuthenticationFilter;
 import org.springframework.http.HttpHeaders;
 
 @Configuration
+@Slf4j
 public class RouteConfig {
     @Autowired
     private JwtAuthenticationFilter jwtFilter;
@@ -21,8 +23,8 @@ public class RouteConfig {
 
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
-        System.out.println("=== RouteConfig 초기화 ===");
-        System.out.println("현재 활성화된 프로필: " + activeProfile);
+        log.debug("=== RouteConfig 초기화 ===");
+        log.debug("현재 활성화된 프로필: " + activeProfile);
 
         final String coreUri = "prod".equals(activeProfile)
                 ? "http://core-container:8081" // 도커네트워크브릿지 사용하지 않고 외부 도메인 사용 시 sunbee.world 사용하는 거처럼 외부에 독립적인 서버 설정 가능
@@ -40,10 +42,10 @@ public class RouteConfig {
                 ? "ws://core-container:8081" // 도커 브릿지 네트워크로 사용하기 때문에 wss 사용 해도 되지만 ws도 가능
                 : "ws://localhost:8081";
 
-        System.out.println("Core URI: " + coreUri);
-        System.out.println("Assist URI: " + assistUri);
-        System.out.println("FastAPI URI: " + fastapiUri);
-        System.out.println("WebSocket URI: " + webSocketUri);
+        log.debug("Core URI: " + coreUri);
+        log.debug("Assist URI: " + assistUri);
+        log.debug("FastAPI URI: " + fastapiUri);
+        log.debug("WebSocket URI: " + webSocketUri);
         
         // 여기서 엔드포인트 이름에 따라 요청이 분배됩니다다
         return builder.routes()

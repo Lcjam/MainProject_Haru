@@ -215,7 +215,7 @@ public class ProfileController {
             // 파일 경로 생성
             java.nio.file.Path imagePath = java.nio.file.Paths.get(System.getProperty("user.dir") + "/src/main/resources/static/profile-images/" + filename);
             java.io.File file = imagePath.toFile();
-            System.out.println("@@@@@@@@@@@@@@@@@@@파일 경로: " + imagePath);
+            log.debug("@@@@@@@@@@@@@@@@@@@파일 경로: " + imagePath);
             
             // 파일이 존재하는지 확인
             if (!file.exists()) {

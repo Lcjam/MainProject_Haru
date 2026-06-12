@@ -1,4 +1,5 @@
 package com.example.demo.service.Market;
+import lombok.extern.slf4j.Slf4j;
 
 import com.example.demo.mapper.Market.UserLocationMapper;
 import com.example.demo.model.Market.UserLocation;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
  * 사용자 위치 관련 로직을 처리하는 서비스 클래스
  */
 @Service
+@Slf4j
 public class UserLocationService {
     private final UserLocationMapper userLocationMapper;
 
@@ -37,6 +39,6 @@ public class UserLocationService {
     @Scheduled(cron = "0 0 3 * * ?") // 매일 새벽 3시 실행
     public void deleteOldUserLocations() {
         userLocationMapper.deleteOldUserLocations();
-        System.out.println("14일 이상 된 사용자 위치 데이터 삭제 완료!");
+        log.debug("14일 이상 된 사용자 위치 데이터 삭제 완료!");
     }
 }

@@ -1,6 +1,7 @@
 package com.example.demo.serviceimpl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -22,11 +23,10 @@ public class LlamaServiceImpl {
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     
-    private String activeProfile = "prod";
-
-    final String gatewayUri = "prod".equals(activeProfile)
-            ? "http://gateway-container:8080"
-            : "http://localhost:8080";
+    // 게이트웨이(=FastAPI 챗봇 진입점) 주소. 환경설정에서 주입, 기본은 로컬.
+    // (이전엔 activeProfile 이 "prod" 로 하드코딩돼 로컬에서도 gateway-container 를 호출하는 버그가 있었음)
+    @Value("${gateway.base-url:http://localhost:8080}")
+    private String gatewayUri;
 
     private String translate(String text, String sourceLang, String targetLang) {
         System.out.println("gatewayUri: " + gatewayUri);
@@ -76,15 +76,17 @@ public class LlamaServiceImpl {
         }
     }
 
+    // 번역 API(MyMemory) 자격증명 — 환경변수로 주입(소스 하드코딩 금지). 비어 있어도 저용량은 동작.
+    @Value("${translate.api.key:}")
+    private String translateApiKey;
+    @Value("${translate.api.email:}")
+    private String translateApiEmail;
+
     private String translateChunk(String text, String sourceLang, String targetLang) throws Exception {
         String encodedText = URLEncoder.encode(text, StandardCharsets.UTF_8);
-        String apiKey = "f3bddd536ff4fe3b5e96";
-        String email = "rlatjsql11@gmail.com";
-        // rlatjsql11@gmail.com f3bddd536ff4fe3b5e96
-        // rlatjsql12@gmail.com 94dea587aaa15e058ead
         String urlStr = String.format(
             "https://api.mymemory.translated.net/get?q=%s&langpair=%s|%s&key=%s&de=%s",
-            encodedText, sourceLang, targetLang, apiKey, email
+            encodedText, sourceLang, targetLang, translateApiKey, translateApiEmail
         );
         
         URL url = new URL(urlStr);

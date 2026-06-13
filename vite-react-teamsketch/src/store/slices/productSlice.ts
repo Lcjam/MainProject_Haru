@@ -1,6 +1,26 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { IProduct, IProductRegisterRequest } from '../../types/product';
 
+export interface IProductRegisterForm {
+  title: string;
+  description: string;
+  price: number | null;
+  categoryId: number;
+  hobbyId: number;
+  transactionType: '대면' | '비대면';
+  registrationType: '판매' | '구매';
+  maxParticipants: number;
+  currentParticipants: number;
+  meetingPlace: string;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+  images: File[];
+  days: string[];
+  startDate: string;
+  endDate: string;
+}
+
 interface ProductState {
   products: IProduct[];
   selectedProduct: IProduct | null;
@@ -9,25 +29,7 @@ interface ProductState {
   error: string | null;
   distance: number;
   formData: Partial<IProductRegisterRequest>;
-  registerForm: {
-    title: string;
-    description: string;
-    price: number | null;
-    categoryId: number;
-    hobbyId: number;
-    transactionType: '대면' | '비대면';
-    registrationType: '판매' | '구매';
-    maxParticipants: number;
-    currentParticipants: number;
-    meetingPlace: string;
-    address: string;
-    latitude: number | null;
-    longitude: number | null;
-    images: File[];
-    days: string[];
-    startDate: string;
-    endDate: string;
-  };
+  registerForm: IProductRegisterForm;
   selectedCategory: number | null;
 }
 

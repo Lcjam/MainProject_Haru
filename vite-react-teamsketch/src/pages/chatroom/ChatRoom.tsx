@@ -1,4 +1,3 @@
-import MessageInput from '../../components/features/chat/MessageInput';
 import { useState, useEffect, useMemo } from 'react';
 import { useRef } from 'react';
 import { useChat } from '../../services/real-time/useChat';
@@ -10,10 +9,22 @@ import { apiConfig } from '../../services/api/apiConfig';
 import { toast } from 'react-toastify';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { useProductByProductId, getApprovalStatus, getProductByProductId } from '../../services/api/productAPI';
-import { IconMap } from '../../components/common/Icons';
-import ProductImage from '../../components/features/image/ProductImage';
-import ProfileImage from '../../components/features/image/ProfileImage';
 import { markChatMessagesAsRead } from '../../store/slices/notiSlice';
+import ChatApprovalFlow from '../../components/features/chat/ChatApprovalFlow';
+import ChatMessageList from '../../components/features/chat/ChatMessageList';
+import ChatInputZone from '../../components/features/chat/ChatInputZone';
+
+/** 서버에서 내려오는 과거 메시지 원본(sentAt/createdAt 혼재) */
+interface RawChatMessage {
+  messageId?: number;
+  chatroomId: number;
+  content: string;
+  senderEmail: string;
+  messageType?: string;
+  sentAt?: string;
+  createdAt?: string;
+  isRead?: boolean;
+}
 
 
 const ChatRoom: React.FC = () => {
@@ -195,7 +206,7 @@ const ChatRoom: React.FC = () => {
         );
         
         if (response.data?.status === 'success' && response.data?.data?.messages) {
-          const messages = response.data.data.messages.map((msg: any) => ({
+          const messages = response.data.data.messages.map((msg: RawChatMessage) => ({
             messageId: msg.messageId,
             chatroomId: msg.chatroomId,
             content: msg.content,
@@ -307,39 +318,6 @@ useEffect(() => {
       scrollToBottom();
     }
   }, [messages, previousMessages, isKeyboardVisible]);
-
-  // 메시지 시간 포맷팅 함수 수정
-  const formatMessageTime = (dateStr: string | number[]) => {
-    try {
-      let date: Date;
-      
-      if (Array.isArray(dateStr)) {
-        // 배열 형식의 날짜 처리 [년, 월, 일, 시, 분, 초]
-        const [year, month, day, hour, minute, second] = dateStr;
-        // 월은 0부터 시작하므로 1을 빼줌
-        date = new Date(year, month - 1, day, hour, minute, second || 0);
-      } else {
-        // 문자열 형식의 날짜 처리
-        date = new Date(dateStr);
-      }
-
-      // 날짜가 유효한지 확인
-      if (isNaN(date.getTime())) {
-        console.error('유효하지 않은 날짜:', dateStr);
-        return '시간 정보 없음';
-      }
-
-      // 한국 시간으로 표시
-      return new Intl.DateTimeFormat('ko-KR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      }).format(date);
-    } catch (error) {
-      console.error('날짜 변환 오류:', error);
-      return '시간 정보 없음';
-    }
-  };
 
   useEffect(() => {
     const fetchProductData = async () => {
@@ -473,26 +451,14 @@ useEffect(() => {
   if (isLoading || isConnecting || isLoadingMessages ) {
     return (
       <div className="flex flex-col h-full">
-        {/* 채팅방 헤더는 항상 표시 */}
-        <div className="fixed bg-gradient-to-r from-primary-500 to-primary-600 dark:from-gray-800 dark:to-gray-700 
-          p-3 flex items-center justify-between shadow-md z-10">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-white/30 shrink-0">
-              <ProductImage 
-                imagePath={chatInfo?.productImageUrl || ''} 
-              />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-base font-medium text-white">
-                {chatInfo?.otherUserName || '상대방'}
-              </span>
-              <span className="text-sm text-white/70">
-                {mainCategory}
-                {subCategory}
-              </span>
-            </div>
-          </div>
-        </div>
+        {/* 채팅방 헤더는 항상 표시 (로딩 중에는 액션 버튼 숨김) */}
+        <ChatApprovalFlow
+          productImageUrl={chatInfo?.productImageUrl}
+          otherUserName={chatInfo?.otherUserName}
+          mainCategory={mainCategory}
+          subCategory={subCategory}
+          showActions={false}
+        />
 
         {/* 로딩 상태에 따른 메시지 표시 */}
         <div className="flex-1 flex justify-center items-center">
@@ -595,146 +561,40 @@ useEffect(() => {
     }
   };
 
-  console.log("userEmail",userEmail);
   return (
     <div className="relative flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-      {/* 채팅 상대방 정보 */}
-      <div className="bg-gradient-to-r from-primary-500 to-primary-600 dark:from-gray-800 dark:to-gray-700 
-        p-3 flex items-center justify-between shadow-md z-10 flex-shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-white/30 shrink-0">
-            <ProductImage 
-              imagePath={chatInfo?.productImageUrl || ''} 
-            />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-base font-medium text-white">
-              {chatInfo?.otherUserName || '상대방'}
-            </span>
-            <span className="text-sm text-white/70">
-              {mainCategory}
-              {subCategory}
-            </span>
-          </div>
-        </div>
+      {/* 채팅 상대방 정보 + 승인 플로우 */}
+      <ChatApprovalFlow
+        productImageUrl={chatInfo?.productImageUrl}
+        otherUserName={chatInfo?.otherUserName}
+        mainCategory={mainCategory}
+        subCategory={subCategory}
+        isOwner={chatInfo?.registrantEmail === userEmail}
+        isApproved={isApproved}
+        isDisabled={isDisabled}
+        transactionType={transactionType}
+        onJoinClick={handleJoinClick}
+        onLocationClick={handleLocationClick}
+      />
 
-        {/* 함께하기 버튼 또는 위치보기 버튼 */}
-        { chatInfo?.registrantEmail === userEmail && !isApproved ? (
-          <button
-            onClick={handleJoinClick}
-            disabled={isDisabled}
-            className="
-              bg-white text-primary-600 dark:bg-gray-700 dark:text-white
-              px-4 py-2 rounded-full shadow-md hover:shadow-lg
-              transition-all duration-300 hover:bg-primary-100 dark:hover:bg-gray-600
-              disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium
-            "
-          >
-            함께하기
-          </button>
-        ) : isApproved && transactionType === '대면' && (
-          <button
-            onClick={handleLocationClick}
-            className="
-              bg-white text-primary-600 dark:bg-gray-700 dark:text-white
-              px-4 py-2 rounded-full shadow-md hover:shadow-lg
-              transition-all duration-300 hover:bg-primary-100 dark:hover:bg-gray-600
-              text-sm font-medium
-            "
-          >
-            <span className="flex items-center">              
-                <IconMap className="w-4 h-4 mr-2" onClick={handleLocationClick}/>
-                위치보기              
-            </span>
-          </button>
-        )}
-      </div>
+      {/* 채팅 메시지 영역 */}
+      <ChatMessageList
+        messages={allMessages}
+        userEmail={userEmail}
+        otherUserName={chatInfo?.otherUserName}
+        containerRef={chatContainerRef}
+        messagesEndRef={messagesEndRef}
+        onAreaClick={handleChatAreaClick}
+      />
 
-        {/* 채팅 메시지 영역 */}
-        <div
-          ref={chatContainerRef}
-          onClick={handleChatAreaClick}
-          className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50 dark:bg-gray-900 pb-20"
-        >
-          {allMessages.map((msg, index) => (
-            <div key={msg.messageId || index} className="group relative">
-              <div className={`flex flex-col ${msg.senderEmail === userEmail ? 'items-end' : 'items-start'}`}>
-                {/* 상대방 메시지일 때만 프로필 이미지와 닉네임 표시 */}
-                {msg.senderEmail !== userEmail && (
-                  <div className="flex items-start space-x-2 mb-1">
-                    <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-primary-100 dark:ring-primary-900 flex-shrink-0">
-                      <ProfileImage 
-                        nickname={chatInfo?.otherUserName || ''}                     
-                      />
-                    </div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {chatInfo?.otherUserName || '알 수 없음'}
-                    </span>
-                  </div>
-                )}
-                
-                {/* 메시지와 시간을 감싸는 컨테이너 */}
-                <div className={`flex items-end gap-2 ${msg.senderEmail !== userEmail ? 'ml-10' : ''}`}>
-                  {/* 시간을 왼쪽에 표시 (내가 보낸 메시지일 경우) */}
-                  {msg.senderEmail === userEmail && (
-                    <span className="text-xs text-gray-500 flex-shrink-0">
-                      {formatMessageTime(msg.sentAt || '')}
-                    </span>
-                  )}
-                  {/* 메시지 내용 */}
-                  <div className={`max-w-[80%] rounded-2xl p-3 shadow-md ${
-                    msg.senderEmail === userEmail 
-                      ? 'bg-primary-500 text-white rounded-tr-sm' 
-                      : 'bg-white dark:bg-gray-800 rounded-tl-sm'
-                  }`}>
-                    {msg.messageType === MessageType.IMAGE ? (
-                      <img
-                        src={msg.content}
-                        alt="전송된 이미지"
-                        className="w-full max-w-xs rounded-xl"
-                      />
-                    ) : msg.messageType === MessageType.FILE ? (
-                      <a
-                        href={msg.content}
-                        download
-                        className="block p-3 bg-white/10 rounded-xl text-white hover:bg-white/20 transition-colors"
-                      >
-                        📄 첨부파일
-                      </a>
-                    ) : (
-                      <p className={msg.senderEmail === userEmail ? 'text-white' : 'text-gray-800'}>
-                        {msg.content}
-                      </p>
-                    )}
-                  </div>
-                  {/* 시간을 오른쪽에 표시 (상대방이 보낸 메시지일 경우) */}
-                  {msg.senderEmail !== userEmail && (
-                    <span className="text-xs text-gray-500 flex-shrink-0">
-                      {formatMessageTime(msg.sentAt || '')}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* 하단 입력 영역 */}
-        <div 
-          ref={messageInputRef}
-          className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-lg border-t border-gray-200 dark:border-gray-700"
-        >
-          <div className="mx-auto max-w-screen-md">
-            <MessageInput 
-              onSendMessage={handleSendMessage}
-              onFocus={() => setIsKeyboardVisible(true)}
-              onBlur={() => setIsKeyboardVisible(false)}
-            />
-          </div>
-        </div>
-      </div>
-   
+      {/* 하단 입력 영역 */}
+      <ChatInputZone
+        inputRef={messageInputRef}
+        onSendMessage={handleSendMessage}
+        onFocus={() => setIsKeyboardVisible(true)}
+        onBlur={() => setIsKeyboardVisible(false)}
+      />
+    </div>
   );
 };
 

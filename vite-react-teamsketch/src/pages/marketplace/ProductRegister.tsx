@@ -21,6 +21,7 @@ import {
 } from '../../store/slices/productSlice';
 import { resetLocations } from '../../store/slices/mapSlice';
 import { registerProduct } from '../../services/api/productAPI';
+import { validateProductForm } from '../../utils/productValidation';
 
 const ProductRegister = () => {
   const navigate = useNavigate();
@@ -69,60 +70,10 @@ const ProductRegister = () => {
 
   const handleSubmit = async () => {
     try {
-      if (!user?.email) {
-        throw new Error('로그인이 필요합니다.');
-      }
-
-      // 필수 필드 검증
-      if (!registerForm.title) {
-        throw new Error('제목을 입력해주세요.');
-      }
-      if (!registerForm.price) {
-        throw new Error('가격을 입력해주세요.');
-      }
-      if (!registerForm.transactionType) {
-        throw new Error('거래 유형을 선택해주세요.');
-      }
-      if (!registerForm.registrationType) {
-        throw new Error('등록 유형을 선택해주세요.');
-      }
-      if (registerForm.transactionType === '대면') {
-        if (!registerForm.meetingPlace) {
-          throw new Error('대면 거래는 장소입력이 필수입니다.');
-        }
-      }
-      if (!registerForm.categoryId) {
-        throw new Error('카테고리를 선택해주세요.');
-      }
-      if (!registerForm.hobbyId) {
-        throw new Error('취미를 선택해주세요.');
-      }
-      if (!registerForm.maxParticipants) {
-        throw new Error('모집 인원을 입력해주세요.');
-      }
-      if (!registerForm.startDate) {
-        throw new Error('시작 일시를 입력해주세요.');
-      }
-      if (!registerForm.endDate) {
-        throw new Error('종료 일시를 입력해주세요.');
-      }
-      if (!registerForm.days) {
-        throw new Error('진행 요일을 선택해주세요.');
-      }
-
-      if (!registerForm.description) {
-        throw new Error('상품 설명을 입력해주세요.');
-      }
-
-      // 대면 거래인 경우 위치 정보 검증
-      if (
-        registerForm.transactionType === '대면' &&
-        (!registerForm.meetingPlace ||
-          !registerForm.latitude ||
-          !registerForm.longitude ||
-          !registerForm.address)
-      ) {
-        throw new Error('대면 거래의 경우 위치 정보가 필요합니다.');
+      // 필수 필드 + 대면 거래 위치 검증 (utils/productValidation)
+      const validationError = validateProductForm(registerForm, user?.email);
+      if (validationError) {
+        throw new Error(validationError);
       }
 
       // 이미지 중복 제거
@@ -134,7 +85,7 @@ const ProductRegister = () => {
       const productData = {
         title: registerForm.title,
         description: registerForm.description,
-        price: registerForm.price,        
+        price: registerForm.price ?? 0,
         hobbyId: registerForm.hobbyId,
         categoryId: registerForm.categoryId,
         transactionType: registerForm.transactionType,
@@ -166,7 +117,7 @@ const ProductRegister = () => {
       dispatch(setError(errorMessage));
     }
   };
-  console.log('productData', registerForm);
+
   return (
     <PRLayout
       title={<h1>상품 등록</h1>}

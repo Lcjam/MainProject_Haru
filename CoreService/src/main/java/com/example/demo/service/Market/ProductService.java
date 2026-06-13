@@ -16,12 +16,18 @@ import com.example.demo.util.BaseResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.example.demo.mapper.Market.UserLocationMapper;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -528,8 +534,41 @@ public class ProductService {
         // 요청자의 승인 상태 조회
         String approvalStatus = productMapper.findApprovalStatus(email, productId);
         log.info("승인 상태 조회 결과: productId={}, email={}, status={}", productId, email, approvalStatus);
-        
+
         return approvalStatus != null ? approvalStatus : "미승인";
     }
+
+    /**
+     * 상품 이미지 파일을 정적 리소스 경로에서 해석해 반환한다.
+     * 이미지 메타데이터가 없거나 실제 파일이 없거나 읽을 수 없으면 {@code null} 을 반환한다(컨트롤러가 404 처리).
+     */
+    public ProductImageFile getProductImageResource(Long imageId) throws IOException {
+        ProductImage productImage = productImageMapper.findById(imageId);
+        if (productImage == null) {
+            return null;
+        }
+
+        File file = new File(System.getProperty("user.dir") + "/src/main/resources/static" + productImage.getImagePath());
+        if (!file.exists()) {
+            return null;
+        }
+
+        Path path = file.toPath();
+        Resource resource = new UrlResource(path.toUri());
+        if (!resource.exists() || !resource.isReadable()) {
+            return null;
+        }
+
+        // MIME 타입 자동 감지 (실패 시 기본값)
+        String contentType = Files.probeContentType(path);
+        if (contentType == null) {
+            contentType = "application/octet-stream";
+        }
+
+        return new ProductImageFile(resource, contentType, resource.getFilename());
+    }
+
+    /** 상품 이미지 응답에 필요한 리소스 + 메타데이터(컨트롤러가 HTTP 헤더로 변환). */
+    public record ProductImageFile(Resource resource, String contentType, String filename) {}
 
 }

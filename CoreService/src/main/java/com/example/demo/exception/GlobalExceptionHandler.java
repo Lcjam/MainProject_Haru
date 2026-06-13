@@ -27,6 +27,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(ApiResponse.error(message, "400"));
     }
 
+    /** 인증 실패(유효하지 않은/누락된 토큰) → 401 */
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ApiResponse<String>> handleUnauthorized(UnauthorizedException ex) {
+        log.debug("인증 실패: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(ex.getMessage(), "401"));
+    }
+
     /** 잘못된 인자 → 400 */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<String>> handleIllegalArgument(IllegalArgumentException ex) {

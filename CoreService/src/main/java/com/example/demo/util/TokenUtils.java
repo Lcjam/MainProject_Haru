@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 
+import com.example.demo.exception.UnauthorizedException;
 import com.example.demo.security.JwtTokenBlacklistService;
 import com.example.demo.security.JwtTokenProvider;
 
@@ -69,11 +70,28 @@ public class TokenUtils {
      */
     public String getEmailFromAuthHeader(String authHeader) {
         String token = extractTokenWithoutBearer(authHeader);
-        
+
         if (!isTokenValid(token)) {
             return null;
         }
-        
+
         return getEmailFromToken(token);
+    }
+
+    /**
+     * Authorization 헤더에서 이메일을 추출하되, 토큰이 유효하지 않으면
+     * {@link UnauthorizedException} 을 던진다.
+     * 컨트롤러의 반복적인 {@code email == null → 401} 가드를
+     * {@code GlobalExceptionHandler} 로 위임하기 위한 헬퍼.
+     * @param authHeader Authorization 헤더 값 (Bearer 토큰 포함)
+     * @return 사용자 이메일 (유효한 토큰)
+     * @throws UnauthorizedException 토큰이 유효하지 않은 경우
+     */
+    public String requireEmail(String authHeader) {
+        String email = getEmailFromAuthHeader(authHeader);
+        if (email == null) {
+            throw new UnauthorizedException("인증되지 않은 요청입니다.");
+        }
+        return email;
     }
 }

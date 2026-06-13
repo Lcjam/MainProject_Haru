@@ -5,24 +5,18 @@ import com.example.demo.dto.Market.ProductRequestDto;
 import com.example.demo.dto.Market.ProductResponse;
 import com.example.demo.dto.Market.NearbyProductRequest;
 
-import com.example.demo.model.Market.ProductImage;
 import com.example.demo.service.Market.ProductService;
-import com.example.demo.mapper.Market.ProductImageMapper;
 import com.example.demo.util.BaseResponse;
 import com.example.demo.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -35,7 +29,6 @@ import org.slf4j.LoggerFactory;
 public class ProductController {
     private final ProductService productService;
     private final JwtTokenProvider jwtTokenProvider;
-    private final ProductImageMapper productImageMapper;
     private static final Logger log = LoggerFactory.getLogger(ProductController.class);
 
     /** 상품 등록 (구매/판매) - 이미지 업로드 포함 **/
@@ -193,34 +186,15 @@ public class ProductController {
     /** 상품 이미지 직접 반환 (엔드포인트 제공) **/
     @GetMapping("/images/{imageId}")
     public ResponseEntity<Resource> getProductImage(@PathVariable Long imageId) throws IOException {
-        ProductImage productImage = productImageMapper.findById(imageId);
-        if (productImage == null) {
+        ProductService.ProductImageFile image = productService.getProductImageResource(imageId);
+        if (image == null) {
             return ResponseEntity.notFound().build();
-        }
-
-        // 이미지 파일 경로 가져오기
-        File file = new File(System.getProperty("user.dir") + "/src/main/resources/static" + productImage.getImagePath());
-        if (!file.exists()) {  // 파일 존재 여부 확인
-            return ResponseEntity.notFound().build();
-        }
-
-        Path path = file.toPath();
-        Resource resource = new UrlResource(path.toUri());
-
-        if (!resource.exists() || !resource.isReadable()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        // **MIME 타입 자동 감지**
-        String contentType = Files.probeContentType(path);
-        if (contentType == null) {
-            contentType = "application/octet-stream"; // 기본 값 설정
         }
 
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
-                .body(resource);
+                .contentType(MediaType.parseMediaType(image.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + image.filename() + "\"")
+                .body(image.resource());
     }
 
     /**

@@ -46,11 +46,17 @@ dependencies {
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
 
    implementation 'net.nurigo:sdk:4.2.7'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
 dependencyManagement {
 	imports {
 		mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
 	}
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
 }
 

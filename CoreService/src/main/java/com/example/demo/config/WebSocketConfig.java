@@ -21,6 +21,7 @@ import java.security.Principal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.example.demo.security.JwtTokenProvider;
+import com.example.demo.util.TokenUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -30,10 +31,12 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenUtils tokenUtils;
     private static final Logger log = LoggerFactory.getLogger(WebSocketConfig.class);
 
-    public WebSocketConfig(JwtTokenProvider jwtTokenProvider) {
+    public WebSocketConfig(JwtTokenProvider jwtTokenProvider, TokenUtils tokenUtils) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.tokenUtils = tokenUtils;
     }
 
     @Bean
@@ -76,7 +79,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                     // 연결 시 토큰 검증
                     List<String> authorization = accessor.getNativeHeader("Authorization");
                     if (authorization != null && !authorization.isEmpty()) {
-                        String token = authorization.get(0).replace("Bearer ", "");
+                        String token = tokenUtils.extractTokenWithoutBearer(authorization.get(0));
                         
                         try {
                             // 토큰 검증 및 이메일 추출

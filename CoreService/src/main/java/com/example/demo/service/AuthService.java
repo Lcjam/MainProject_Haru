@@ -11,6 +11,7 @@ import com.example.demo.model.User;
 import com.example.demo.security.JwtTokenBlacklistService;
 import com.example.demo.security.JwtTokenProvider;
 import com.example.demo.util.PasswordUtils;
+import com.example.demo.util.TokenUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class AuthService {
     private final PasswordUtils passwordUtils;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtTokenBlacklistService jwtTokenBlacklistService;
+    private final TokenUtils tokenUtils;
     private final HobbyService hobbyService;  // 추가된 의존성
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
@@ -284,9 +286,7 @@ public class AuthService {
 
         try {
             // Bearer 제거
-            if (token.startsWith("Bearer ")) {
-                token = token.substring(7);
-            }
+            token = tokenUtils.extractTokenWithoutBearer(token);
 
             // 토큰 검증
             if (!jwtTokenProvider.validateToken(token) || jwtTokenBlacklistService.isBlacklisted(token)) {

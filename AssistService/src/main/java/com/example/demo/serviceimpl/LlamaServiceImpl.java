@@ -86,10 +86,19 @@ public class LlamaServiceImpl {
 
     private String translateChunk(String text, String sourceLang, String targetLang) throws Exception {
         String encodedText = URLEncoder.encode(text, StandardCharsets.UTF_8);
-        String urlStr = String.format(
-            "https://api.mymemory.translated.net/get?q=%s&langpair=%s|%s&key=%s&de=%s",
-            encodedText, sourceLang, targetLang, translateApiKey, translateApiEmail
-        );
+        // 빈 key/de(email) 를 그대로 붙이면 MyMemory 가 403 "INVALID EMAIL PROVIDED" 로 거부한다.
+        // 자격증명이 설정된 경우에만 파라미터를 추가(미설정 시 익명 호출 = 저용량 정상 동작).
+        StringBuilder urlBuilder = new StringBuilder(String.format(
+            "https://api.mymemory.translated.net/get?q=%s&langpair=%s|%s",
+            encodedText, sourceLang, targetLang
+        ));
+        if (translateApiKey != null && !translateApiKey.isBlank()) {
+            urlBuilder.append("&key=").append(URLEncoder.encode(translateApiKey, StandardCharsets.UTF_8));
+        }
+        if (translateApiEmail != null && !translateApiEmail.isBlank()) {
+            urlBuilder.append("&de=").append(URLEncoder.encode(translateApiEmail, StandardCharsets.UTF_8));
+        }
+        String urlStr = urlBuilder.toString();
         
         URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();

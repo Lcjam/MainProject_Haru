@@ -58,9 +58,15 @@ public class RouteConfig {
                         .path("/api/assist/**")
                         .filters(f -> f.filter(jwtFilter.apply(new JwtAuthenticationFilter.Config())))
                         .uri(assistUri))
+                // FastAPI(AI 챗봇) 라우트는 JWT 필터 제외.
+                // 호출자는 사용자가 아니라 AssistService 의 서버-투-서버 콜백
+                // (LlamaServiceImpl.processWithLlama → gateway /api/fastapi/chat)이며
+                // 사용자 토큰을 싣지 않는다. 필터를 걸면 토큰 없는 콜백이 401 로 거부되어
+                // AI 응답 체인이 끊긴다. (사용자 진입점인 /api/assist/** 는 그대로 JWT 보호됨)
+                // ⚠️ prod: 모델 엔드포인트 무인증 노출 방지를 위해 네트워크 격리
+                //    (fastapi-container 내부 전용) 또는 서비스 토큰으로 제한할 것.
                 .route("fastapiService", r -> r
                         .path("/api/fastapi/**")
-                        .filters(f -> f.filter(jwtFilter.apply(new JwtAuthenticationFilter.Config())))
                         .uri(fastapiUri))
                 // 웹소켓 라우팅 개선
                 .route("coreSockJsWebSocket", r -> r

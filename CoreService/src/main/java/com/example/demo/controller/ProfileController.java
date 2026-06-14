@@ -185,11 +185,8 @@ public class ProfileController {
     public ResponseEntity<ApiResponse<Map<String, String>>> getMyProfileImageInfo(
             @RequestHeader("Authorization") String token) {
         
-        String tokenWithoutBearer = token;
-        if (token.startsWith("Bearer ")) {
-            tokenWithoutBearer = token.substring(7);
-        }
-        
+        String tokenWithoutBearer = userService.tokenUtils.extractTokenWithoutBearer(token);
+
         if (!userService.tokenUtils.isTokenValid(tokenWithoutBearer)) {
             Map<String, String> errorData = new HashMap<>();
             errorData.put("message", "유효하지 않은 인증 토큰입니다.");

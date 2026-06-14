@@ -4,6 +4,7 @@ import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 from llama_cpp import Llama
 import logging
+import os
 from typing import List, Dict
 
 # 기본 로깅 설정
@@ -21,8 +22,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 모델 초기화 - HuggingFace 경로 사용
-model_path = "C:/java/deepseek-llm-7b-chat.Q4_K_M.gguf/deepseek-llm-7b-chat-q4_k_m-imat.gguf"
+# 모델 경로는 환경변수로 외부화(소스 하드코딩 금지). 미설정 시 명확히 실패.
+model_path = os.getenv("DEEPSEEK_MODEL_PATH")
+if not model_path:
+    raise RuntimeError("DEEPSEEK_MODEL_PATH 환경변수에 .gguf 모델 경로를 지정하세요.")
 llm = Llama(
     model_path=model_path,
     n_ctx=2048,

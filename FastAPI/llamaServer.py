@@ -1,29 +1,42 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
-from typing import Dict
-import uvicorn
-from fastapi.middleware.cors import CORSMiddleware
-import re
-import asyncio
+"""
+Haru AI 챗봇 (TinyLlama) FastAPI 서버.
+
+체인: Front → Gateway(8080) /api/assist/tinylamanaver/chat → AssistService(8082)
+      → LlamaServiceImpl.processWithLlama → Gateway /api/fastapi/chat → (여기) 8001
+
+모델은 llama.cpp(gguf) 기반. Apple Silicon 에서는 Metal 백엔드가 자동 사용된다.
+경로/포트 등은 환경변수로 외부화한다(소스 하드코딩 금지):
+  LLAMA_MODEL_PATH  (기본: models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf)
+  LLAMA_HOST        (기본: 0.0.0.0)
+  LLAMA_PORT        (기본: 8001)
+  LLAMA_N_CTX       (기본: 2048)
+  LLAMA_N_GPU_LAYERS(기본: -1 = 가능한 만큼 GPU 오프로드)
+"""
 import logging
+import os
 from datetime import datetime
+from typing import Dict, List
+
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from llama_cpp import Llama
+from pydantic import BaseModel
 
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
+    format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler('llama_server.log'),
-        logging.StreamHandler()
-    ]
+        logging.FileHandler("llama_server.log"),
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# CORS 설정
+# CORS 설정 (프론트/게이트웨이 진입점 허용)
 origins = [
     "http://localhost:8080",
     "http://localhost:3000",
@@ -31,247 +44,109 @@ origins = [
     "http://core-container:8081",
     "http://assist-container:8082",
     "https://sunbee.world",
-    "*"  # 개발 중에는 모든 origin 허용
+    "*",  # 개발 중에는 모든 origin 허용
 ]
-
-logger.info("CORS 설정 초기화...")
-logger.info(f"허용된 Origins: {origins}")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
+    expose_headers=["*"],
 )
 
-print("모델 로딩 중...")
-# 오픈소스 모델 사용 (라이센스 제한 없음)
-model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    torch_dtype=torch.float16,
-    device_map="auto",
+# 모델 설정 — 윈도우 절대경로 하드코딩 제거, 환경변수로 외부화
+MODEL_PATH = os.getenv(
+    "LLAMA_MODEL_PATH",
+    os.path.join(os.path.dirname(__file__), "models", "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"),
 )
-print("모델 로딩 완료!")
+N_CTX = int(os.getenv("LLAMA_N_CTX", "2048"))
+N_GPU_LAYERS = int(os.getenv("LLAMA_N_GPU_LAYERS", "-1"))
+
+logger.info("모델 로딩 중... path=%s", MODEL_PATH)
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(
+        f"모델 파일을 찾을 수 없습니다: {MODEL_PATH}. "
+        "LLAMA_MODEL_PATH 환경변수로 .gguf 경로를 지정하거나 models/ 에 모델을 내려받으세요."
+    )
+llm = Llama(
+    model_path=MODEL_PATH,
+    n_ctx=N_CTX,
+    n_gpu_layers=N_GPU_LAYERS,
+    chat_format="zephyr",  # TinyLlama-1.1B-Chat-v1.0 은 zephyr(<|user|>/<|assistant|>) 포맷
+    verbose=False,
+)
+logger.info("모델 로딩 완료!")
+
+SYSTEM_PROMPT = """
+You are the AI customer support agent for the Haru app. Your name is Luffy.
+
+Haru is a "market where hobbies become talents." It provides a space where anyone can
+share, trade, and experience their hobbies or skills with others. Be friendly, concise,
+and professional. Consider the conversation context for consistency. Offer step-by-step
+guidance when explaining features. Redirect payment/personal-data/security inquiries to
+dedicated support. If unsure, honestly say "I'm not sure" instead of guessing.
+
+Core features: hobby-based talent market (list & trade products), real-time chat &
+notifications, location-based discovery (nearby filter), community groups.
+
+Navigation: Main (/), bottom menu = Market / Chat / Notification / Location / My Page.
+Accounts: login (/login), signup (/signup), password recovery, delete account
+(/delete-account). Marketplace: register product (/product/register), product list &
+filtering, details (/product-details), favorites (/mypage). Chat: 1:1 (/chat/:email),
+AI chatbot (/servicechat). Location: set my location (/my-location), distance filter.
+Payments: card registration (/ocr-upload, /registered-card) — note: payment is currently
+not implemented. Notifications & support: notification center (/notification), customer
+center (/cs-list), 1:1 inquiry (/inquiry-history).
+
+FAQ:
+- Register a product: Market tab > + button 'Register Product' > fill the form.
+- Chat with a user: click 'Apply' on the product detail page, or go to the chat page.
+- Set location: bottom-menu Location icon > Set My Location.
+- No chat notifications: check Settings > Notification Preferences.
+- See my listed products: My Page > Product Management.
+""".strip()
+
 
 class ChatRequest(BaseModel):
     message: str
     history: list = []
-    sessionId: str  # sessionId 추가
+    sessionId: str  # AssistService 가 사용자 이메일을 세션 ID로 전달
 
-# 세션별 대화 기록을 저장할 딕셔너리
-session_histories = {}
+
+@app.get("/api/fastapi/health")
+def health() -> Dict[str, str]:
+    return {"status": "ok", "model": os.path.basename(MODEL_PATH)}
+
 
 @app.post("/api/fastapi/chat")
 async def chat(request: ChatRequest) -> Dict[str, str]:
     try:
-        # 요청 로깅 강화
-        logger.info(f"""
-=== 새로운 채팅 요청 ===
-시간: {datetime.now()}
-세션 ID: {request.sessionId}
-메시지: {request.message}
-히스토리 길이: {len(request.history)}
-요청 헤더: {request.headers if hasattr(request, 'headers') else 'No headers'}
-======================
-""")
-        
-        # 세션별 히스토리 관리
-        if request.sessionId not in session_histories:
-            logger.info(f"새로운 세션 시작: {request.sessionId}")
-            session_histories[request.sessionId] = []
-        
-        # 시스템 프롬프트
-        system_prompt = """
-            You are the AI customer support agent for the Haru app. Your name is Luffy.
-
-            🧭 Haru Chatbot Operating Philosophy
-
-            Haru is a "market where hobbies become talents."
-            It provides a space where anyone can share, trade, and experience their hobbies or skills with others.
-            We aim to provide friendly and professional service that enriches users' experiences and encourages exploration.
-
-            🤖 Luffy's Customer Support Guidelines
-
-            Provide accurate and concise answers.
-
-            Ensure consistency by considering the conversation context.
-
-            Offer step-by-step guidance when explaining features.
-
-            Redirect inquiries related to payment, personal data, or security to dedicated support.
-
-            If unsure, honestly say "I'm not sure" instead of guessing.
-
-            Respond with empathy and sincerity when users face difficulties.
-
-            📱 Haru Core Features Summary
-
-            Hobby-based Talent Market: Anyone can list products based on their hobbies and trade with other users.
-
-            Matching & Communication: Real-time connection through chat and notifications.
-
-            Location-based Discovery: Filter products based on the user's current location.
-
-            Community Features: Enable lasting user relationships via small groups and competitions.
-
-            🗺️ Main Menu Navigation
-
-            🏠 Main Navigation
-
-            Main Page (/): Recommended and latest products
-
-            Bottom Menu:
-
-            Market, Chat, Notification, Location, My Page
-
-            🔐 Account Management
-
-            Login (/login), Sign Up (/signup), Password Recovery & Update
-
-            Account Deletion (/delete-account)
-
-            🛍️ Talent Marketplace
-
-            Register Product (/product/register)
-
-            Product List and Filtering
-
-            Product Details (/product-details)
-
-            Favorite Products (/mypage → Products of Interest)
-
-            💬 Chat System
-
-            1:1 Chat Room (/chat/:email)
-
-            AI Chatbot (/servicechat)
-
-            Notifications sent during chat, application, and location sharing
-
-            📍 Location-Based Features
-
-            Set My Location (/my-location)
-
-            Filter by Distance ("Nearby" feature)
-
-            💳 Payments & Transactions
-
-            Card Registration and Management (/ocr-upload, /registered-card)
-
-            View Payment and Transaction History
-
-            Share location between seller and buyer
-
-            🔔 Notifications & Customer Center
-
-            Notification Center (/notification)
-
-            Customer Center (/cs-list)
-
-            1:1 Inquiry (/inquiry-history)
-
-            ❓ Frequently Asked Questions (FAQ)
-
-            Q. How do I register a product?
-            → Go to [Market] tab > Click the + button 'Register Product' and fill out the form.
-
-            Q. How do I chat with another user?
-            → Click the 'Apply' button on the product detail page or go to the chat page.
-
-            Q. How do I set my location?
-            → Tap the 'Location' icon in the bottom menu > Set My Location
-
-            Q. I’m not receiving chat notifications.
-            → Check in [Settings] > Notification Preferences.
-
-            Q. How do I make a payment?
-            → Currently not implemented.
-
-            Q. Where can I see my listed products?
-            → [My Page] → Product Management
-
-            💡 Feature Suggestions or Bug Reports
-
-            If you have suggestions like “I wish this feature existed,”
-            👉 Customer Center > 1:1 Inquiry
-            👉 or AI Chatbot to leave your feedback!
-            We’re always listening.
-
-            🎯 What the Chatbot Does Best
-
-            Explains how to use the app step-by-step
-
-            Answers feature-related inquiries
-
-            Provides guidance and empathy for bugs/errors
-
-            Collects and summarizes user feedback
-    
-            """
-
-        # 대화 히스토리를 포함한 프롬프트 구성
-        full_prompt = f"<system>{system_prompt}</system>\n"
-
-        print(f"\n=== 세션 {request.sessionId}의 대화 히스토리 시작 ===")
-        print(f"히스토리 메시지 수: {len(request.history)}")
-
-        # 이전 대화 내용 추가 (최근 4개 메시지만 사용)
-        for i, msg in enumerate(request.history[-4:]):
-            print(f"\n메시지 {i+1}:")
-            print(f"사용자: {msg['user']}")
-            if "assistant" in msg:
-                print(f"어시스턴트: {msg['assistant']}")
-            full_prompt += f"<user>{msg['user']}</user>\n"
-            if "assistant" in msg:
-                full_prompt += f"<assistant>{msg['assistant']}</assistant>\n"
-
-        # 현재 메시지 추가
-        print(f"\n현재 메시지: {request.message}")
-        full_prompt += f"<user>{request.message}</user>\n<assistant>"
-
-        print("\n=== 최종 프롬프트 ===")
-        print(full_prompt)
-        print("=====================\n")
-
-        # 입력 메시지 토큰화
-        inputs = tokenizer(full_prompt, return_tensors="pt").to(model.device)
-
-        # 생성 파라미터 설정
-        generation_config = {
-            "max_length": 2048,
-            "temperature": 0.7,
-            "top_p": 0.95,
-            "repetition_penalty": 1.15,
-            "do_sample": True
-        }
-
-        # 🔹 비동기 실행으로 변경 (`asyncio.to_thread` 사용)
-        outputs = await asyncio.to_thread(
-            model.generate,
-            **inputs,
-            **generation_config,
-            pad_token_id=tokenizer.eos_token_id
+        logger.info(
+            "채팅 요청 | time=%s session=%s msg=%r history=%d",
+            datetime.now(), request.sessionId, request.message, len(request.history),
         )
 
-        # 응답 디코딩 및 프롬프트 제거
-        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        response = response.split("<assistant>")[-1].strip()
-        # \n은 유지하고 다른 태그만 제거
-        clean_response = re.sub(r"</?(?!br\b)[a-zA-Z0-9]+>", "", response).strip()
-        print(clean_response)
+        # 메시지 구성: 시스템 + 최근 히스토리(최대 4턴) + 현재 메시지
+        messages: List[Dict[str, str]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        for msg in request.history[-4:]:
+            if msg.get("user"):
+                messages.append({"role": "user", "content": msg["user"]})
+            if msg.get("assistant"):
+                messages.append({"role": "assistant", "content": msg["assistant"]})
+        messages.append({"role": "user", "content": request.message})
 
-        # 응답 로깅
-        logger.info(f"""
-=== 응답 생성 완료 ===
-세션 ID: {request.sessionId}
-응답 길이: {len(clean_response)}
-======================
-""")
-        return {"response": clean_response}
+        result = llm.create_chat_completion(
+            messages=messages,
+            temperature=0.7,
+            top_p=0.95,
+            repeat_penalty=1.15,
+            max_tokens=512,
+        )
+        response = result["choices"][0]["message"]["content"].strip()
+
+        logger.info("응답 생성 완료 | session=%s len=%d", request.sessionId, len(response))
+        return {"response": response}
 
     except Exception as e:
         error_msg = f"에러 발생 - 세션 ID: {request.sessionId}, 에러: {str(e)}"
@@ -280,13 +155,7 @@ async def chat(request: ChatRequest) -> Dict[str, str]:
 
 
 if __name__ == "__main__":
-    logger.info("=== LLaMA 서버 시작 ===")
-    logger.info(f"모델: {model_name}")
-    # 호스트를 0.0.0.0으로 설정하여 외부 접근 허용
-    logger.info("서버 시작: host=0.0.0.0, port=8001")
-    uvicorn.run(
-        app, 
-        host="0.0.0.0",  # 모든 IP에서 접근 가능하도록 설정
-        port=8001,
-        log_level="info"
-    )
+    host = os.getenv("LLAMA_HOST", "0.0.0.0")
+    port = int(os.getenv("LLAMA_PORT", "8001"))
+    logger.info("=== LLaMA(gguf) 서버 시작 === model=%s host=%s port=%d", MODEL_PATH, host, port)
+    uvicorn.run(app, host=host, port=port, log_level="info")

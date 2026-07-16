@@ -38,3 +38,11 @@ awesome-codex-subagents/
 **/.env
 !.env.example
 !**/.env.example
+
+# TLS 인증서/개인키 — 절대 커밋 금지 (public 노출 방지)
+**/nginx/ssl/
+*.pem
+*.key
+*.pfx
+*.jks
+*.keystore

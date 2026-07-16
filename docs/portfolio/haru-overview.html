@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haru — 구현 개요 (Implementation Overview)</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#171d26; --panel2:#1d2530; --line:#2a3340;
+    --txt:#e6edf3; --muted:#9aa7b4; --accent:#4ea1ff; --accent2:#7ee787;
+    --core:#4ea1ff; --assist:#f2a85f; --gw:#b083f0; --front:#7ee787; --data:#f06f9c; --ai:#5fd3c2;
+    --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    font-size:15px;line-height:1.6;display:flex}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:.86em;color:#cdd9e5}
+  h1,h2,h3{line-height:1.25;margin:0 0 .5em}
+  h2{font-size:1.5rem;border-bottom:1px solid var(--line);padding-bottom:.35em;margin-top:0}
+  h3{font-size:1.08rem;color:var(--accent2);margin-top:1.6em}
+  /* sidebar */
+  nav.side{position:fixed;top:0;left:0;width:230px;height:100vh;overflow-y:auto;
+    background:var(--panel);border-right:1px solid var(--line);padding:22px 0}
+  nav.side .brand{padding:0 22px 16px;font-weight:700;font-size:1.25rem;letter-spacing:.5px}
+  nav.side .brand span{color:var(--accent)}
+  nav.side .tag{display:block;padding:0 22px 14px;color:var(--muted);font-size:.78rem}
+  nav.side a{display:block;color:var(--muted);padding:7px 22px;font-size:.9rem;border-left:3px solid transparent}
+  nav.side a:hover{color:var(--txt);background:var(--panel2);text-decoration:none}
+  nav.side a.active{color:var(--txt);border-left-color:var(--accent);background:var(--panel2)}
+  nav.side .grp{padding:14px 22px 4px;color:#5b6877;font-size:.7rem;text-transform:uppercase;letter-spacing:1px}
+  /* main */
+  main{margin-left:230px;padding:46px 54px 120px;max-width:1080px;width:100%}
+  section{margin-bottom:64px;scroll-margin-top:24px}
+  .lead{color:var(--muted);font-size:1.02rem;max-width:760px}
+  .pill{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.74rem;font-weight:600;
+    border:1px solid var(--line);color:var(--muted);margin:0 4px 4px 0}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:1rem}
+  .card p{margin:0;color:var(--muted);font-size:.88rem}
+  .kpi{font-size:1.7rem;font-weight:700;color:var(--accent)}
+  table{width:100%;border-collapse:collapse;font-size:.86rem;margin:10px 0}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
+  tr:hover td{background:var(--panel)}
+  .method{font-family:var(--mono);font-size:.72rem;font-weight:700;padding:2px 7px;border-radius:5px;white-space:nowrap}
+  .GET{background:#1c3a2e;color:#7ee787}.POST{background:#1c2f4a;color:#6cb6ff}
+  .PUT{background:#4a3a1c;color:#f2cc60}.DELETE{background:#4a1c24;color:#ff7b8a}.WS{background:#3a2a4a;color:#d2a8ff}
+  .path{font-family:var(--mono);font-size:.82rem;color:#cdd9e5}
+  .badge{display:inline-block;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:5px;color:#0f1419}
+  .b-core{background:var(--core)}.b-assist{background:var(--assist)}.b-gw{background:var(--gw)}
+  .b-front{background:var(--front)}.b-data{background:var(--data)}.b-ai{background:var(--ai)}
+  .search{width:100%;padding:10px 14px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:8px;color:var(--txt);font-size:.9rem;margin:6px 0 14px}
+  .note{background:var(--panel2);border-left:3px solid var(--accent);padding:10px 14px;border-radius:0 8px 8px 0;
+    color:var(--muted);font-size:.86rem;margin:14px 0}
+  .flow{font-family:var(--mono);font-size:.82rem;background:var(--panel2);padding:12px 14px;border-radius:8px;
+    color:#cdd9e5;overflow-x:auto;border:1px solid var(--line)}
+  .hl{color:var(--accent2)}
+  svg{max-width:100%;height:auto}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0;font-size:.8rem;color:var(--muted)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  footer{margin-left:230px;padding:24px 54px;color:#5b6877;font-size:.8rem;border-top:1px solid var(--line)}
+  .todo{border:1px dashed var(--line);border-radius:var(--radius);padding:18px;color:var(--muted);background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(255,255,255,.012) 10px,rgba(255,255,255,.012) 20px)}
+</style>
+</head>
+<body>
+
+<nav class="side">
+  <div class="brand"><span>Haru</span> Overview</div>
+  <span class="tag">취미공유 · 중고마켓 · 실시간채팅 마이크로서비스</span>
+  <div class="grp">개요</div>
+  <a href="#overview">시스템 개요</a>
+  <a href="#stack">기술 스택</a>
+  <div class="grp">설계</div>
+  <a href="#db">데이터 모델</a>
+  <a href="#api">API 레퍼런스</a>
+  <a href="#flows">핵심 플로우</a>
+  <div class="grp">기능</div>
+  <a href="#features">기능 쇼케이스</a>
+  <div class="grp">포트폴리오</div>
+  <a href="#portfolio">대표 구현 (STAR)</a>
+  <a href="#refactor">리팩토링 (Before/After)</a>
+</nav>
+
+<main>
+
+<!-- ===================== OVERVIEW ===================== -->
+<section id="overview">
+  <h1 style="font-size:2.1rem;margin-bottom:.2em">Haru — 구현 개요</h1>
+  <p class="lead">취미 기반 매칭 · 위치기반 중고마켓 · 실시간 채팅 · AI 챗봇을 제공하는 <b>마이크로서비스</b> 웹 애플리케이션.
+  프론트엔드는 단일 게이트웨이만 바라보고, 게이트웨이가 JWT 인증과 라우팅을 담당한다.</p>
+  <div style="margin:14px 0">
+    <span class="pill">Spring Boot 3.x</span><span class="pill">Spring Cloud Gateway</span>
+    <span class="pill">MyBatis</span><span class="pill">Redis</span><span class="pill">WebSocket / STOMP</span>
+    <span class="pill">OAuth2 + JWT</span><span class="pill">React 19</span><span class="pill">TypeScript</span>
+    <span class="pill">Redux Toolkit</span><span class="pill">Leaflet</span><span class="pill">OpenCV.js</span>
+    <span class="pill">FastAPI · TinyLlama</span><span class="pill">MySQL</span><span class="pill">Docker</span>
+  </div>
+
+  <h3>아키텍처</h3>
+  <div class="legend">
+    <span><i style="background:var(--front)"></i>Frontend</span>
+    <span><i style="background:var(--gw)"></i>Gateway</span>
+    <span><i style="background:var(--core)"></i>CoreService</span>
+    <span><i style="background:var(--assist)"></i>AssistService</span>
+    <span><i style="background:var(--ai)"></i>FastAPI(AI)</span>
+    <span><i style="background:var(--data)"></i>Data</span>
+  </div>
+  <svg viewBox="0 0 920 420" font-family="-apple-system,sans-serif" font-size="13">
+    <defs>
+      <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L7,3 L0,6 Z" fill="#9aa7b4"/>
+      </marker>
+    </defs>
+    <!-- frontend -->
+    <rect x="40" y="170" width="150" height="80" rx="10" fill="#1c2a1f" stroke="#7ee787"/>
+    <text x="115" y="200" fill="#7ee787" text-anchor="middle" font-weight="700">React SPA</text>
+    <text x="115" y="220" fill="#9aa7b4" text-anchor="middle" font-size="11">:3000 (Vite)</text>
+    <text x="115" y="236" fill="#9aa7b4" text-anchor="middle" font-size="11">Redux · STOMP · Leaflet</text>
+    <!-- gateway -->
+    <rect x="270" y="170" width="150" height="80" rx="10" fill="#251c33" stroke="#b083f0"/>
+    <text x="345" y="200" fill="#b083f0" text-anchor="middle" font-weight="700">GateWay</text>
+    <text x="345" y="220" fill="#9aa7b4" text-anchor="middle" font-size="11">:8080</text>
+    <text x="345" y="236" fill="#9aa7b4" text-anchor="middle" font-size="11">JWT 필터 · 라우팅</text>
+    <!-- core -->
+    <rect x="510" y="40" width="170" height="92" rx="10" fill="#16263b" stroke="#4ea1ff"/>
+    <text x="595" y="68" fill="#4ea1ff" text-anchor="middle" font-weight="700">CoreService</text>
+    <text x="595" y="88" fill="#9aa7b4" text-anchor="middle" font-size="11">:8081</text>
+    <text x="595" y="105" fill="#9aa7b4" text-anchor="middle" font-size="11">사용자·마켓·보드</text>
+    <text x="595" y="120" fill="#9aa7b4" text-anchor="middle" font-size="11">채팅·위치·결제</text>
+    <!-- assist -->
+    <rect x="510" y="170" width="170" height="80" rx="10" fill="#33271a" stroke="#f2a85f"/>
+    <text x="595" y="198" fill="#f2a85f" text-anchor="middle" font-weight="700">AssistService</text>
+    <text x="595" y="218" fill="#9aa7b4" text-anchor="middle" font-size="11">:8082</text>
+    <text x="595" y="234" fill="#9aa7b4" text-anchor="middle" font-size="11">OCR·SMS·번역·위치</text>
+    <!-- fastapi -->
+    <rect x="510" y="290" width="170" height="74" rx="10" fill="#193230" stroke="#5fd3c2"/>
+    <text x="595" y="316" fill="#5fd3c2" text-anchor="middle" font-weight="700">FastAPI (AI)</text>
+    <text x="595" y="336" fill="#9aa7b4" text-anchor="middle" font-size="11">:8001 · TinyLlama</text>
+    <text x="595" y="352" fill="#5b6877" text-anchor="middle" font-size="10">(로컬 기동 범위 외)</text>
+    <!-- data -->
+    <rect x="760" y="60" width="120" height="60" rx="10" fill="#331c28" stroke="#f06f9c"/>
+    <text x="820" y="86" fill="#f06f9c" text-anchor="middle" font-weight="700">MySQL</text>
+    <text x="820" y="104" fill="#9aa7b4" text-anchor="middle" font-size="11">haru_db</text>
+    <rect x="760" y="150" width="120" height="56" rx="10" fill="#331c28" stroke="#f06f9c"/>
+    <text x="820" y="174" fill="#f06f9c" text-anchor="middle" font-weight="700">Redis</text>
+    <text x="820" y="192" fill="#9aa7b4" text-anchor="middle" font-size="11">:6379</text>
+    <!-- arrows -->
+    <line x1="190" y1="205" x2="266" y2="205" stroke="#9aa7b4" marker-end="url(#arr)"/>
+    <text x="228" y="198" fill="#9aa7b4" text-anchor="middle" font-size="10">REST/WS</text>
+    <path d="M420 200 C 470 160, 470 110, 506 100" fill="none" stroke="#9aa7b4" marker-end="url(#arr)"/>
+    <text x="455" y="135" fill="#9aa7b4" font-size="10">/api/core</text>
+    <line x1="420" y1="210" x2="506" y2="210" stroke="#9aa7b4" marker-end="url(#arr)"/>
+    <text x="463" y="204" fill="#9aa7b4" text-anchor="middle" font-size="10">/api/assist</text>
+    <path d="M420 240 C 470 290, 470 320, 506 322" fill="none" stroke="#9aa7b4" marker-end="url(#arr)"/>
+    <text x="455" y="300" fill="#9aa7b4" font-size="10">/api/fastapi</text>
+    <line x1="680" y1="92" x2="756" y2="92" stroke="#9aa7b4" marker-end="url(#arr)"/>
+    <line x1="680" y1="200" x2="690" y2="200" stroke="#9aa7b4"/>
+    <path d="M680 210 C 720 210, 740 180, 756 178" fill="none" stroke="#9aa7b4" marker-end="url(#arr)"/>
+    <line x1="595" y1="132" x2="595" y2="168" stroke="#9aa7b4" marker-end="url(#arr)"/>
+    <text x="612" y="154" fill="#5b6877" font-size="10">DB 공유</text>
+    <path d="M595 40 C 595 20, 800 20, 820 56" fill="none" stroke="#9aa7b4" marker-end="url(#arr)"/>
+  </svg>
+  <div class="note"><b>요청 흐름:</b> 프론트(3000) → GateWay(8080) → Core(8081) / Assist(8082) / FastAPI(8001).
+  WebSocket은 <code>ws://localhost:8080/ws</code> → Gateway → Core(STOMP). 프론트는 게이트웨이 외 다른 서비스를 직접 호출하지 않는다.</div>
+
+  <h3>서비스 구성</h3>
+  <table>
+    <tr><th>서비스</th><th>포트</th><th>스택</th><th>역할</th></tr>
+    <tr><td><span class="badge b-gw">GateWay</span></td><td>8080</td><td>Spring Cloud Gateway (WebFlux/Netty) + Spring Security</td><td>진입점, JWT 검증, CORS, 라우팅</td></tr>
+    <tr><td><span class="badge b-core">CoreService</span></td><td>8081</td><td>Spring Boot 3.3 · MyBatis · Redis · STOMP · OAuth2</td><td>사용자/프로필·마켓·보드/게시글·채팅·위치·결제 (엔드포인트 80+)</td></tr>
+    <tr><td><span class="badge b-assist">AssistService</span></td><td>8082</td><td>Spring Boot 3.3 · MyBatis</td><td>OCR·SMS(OTP)·주소검색·AI챗봇 프록시</td></tr>
+    <tr><td><span class="badge b-ai">FastAPI</span></td><td>8001</td><td>FastAPI · llama.cpp(gguf) · TinyLlama-1.1B</td><td>고객지원 AI 챗봇 (세션 히스토리)</td></tr>
+    <tr><td><span class="badge b-front">Frontend</span></td><td>3000</td><td>Vite 6 · React 19 · TS · Redux Toolkit · React Query</td><td>웹 UI (PWA)</td></tr>
+    <tr><td><span class="badge b-data">MySQL</span></td><td>3306</td><td>MySQL 8 · <code>haru_db</code></td><td>영속 데이터 (40+ 테이블, 5도메인)</td></tr>
+    <tr><td><span class="badge b-data">Redis</span></td><td>6379</td><td>Redis 8</td><td>세션·캐시·Pub/Sub (알림), CoreService 전용</td></tr>
+  </table>
+</section>
+
+<!-- ===================== STACK ===================== -->
+<section id="stack">
+  <h2>기술 스택 & 계층 구조</h2>
+  <div class="grid g3">
+    <div class="card"><h4>백엔드</h4><p>Spring Boot 3.3 · Spring Cloud Gateway · Spring Security · MyBatis 3 · Redis(Lettuce) · WebSocket/STOMP · OAuth2 Client · jjwt · springdoc-openapi</p></div>
+    <div class="card"><h4>프론트엔드</h4><p>React 19 · Vite 6 · TypeScript · Redux Toolkit + redux-persist · TanStack Query · react-router 7 · @stomp/stompjs · axios · Leaflet · OpenCV.js · Tailwind · PWA</p></div>
+    <div class="card"><h4>AI / 인프라</h4><p>FastAPI · llama.cpp(gguf) · TinyLlama-1.1B · MySQL 8 · Redis 8 · Docker (서비스별 Dockerfile) · GitHub Actions 배포 파이프라인 (prod 프로파일, teamsketch-network)</p></div>
+  </div>
+  <h3>백엔드 계층 (CoreService 기준)</h3>
+  <div class="flow">controller  →  service / serviceimpl  →  mapper (인터페이스)  →  mapper XML  →  MySQL
+        │                  │
+   security/filter    listener (Redis Pub/Sub, WebSocket 이벤트)
+   config (Security, WebSocket, Redis, OAuth2, Swagger)
+   util (TokenUtils, BaseResponse, PasswordUtils, CookieUtils)</div>
+  <div class="note">도메인별 패키지 분리: <code>board/</code>, <code>Market/</code>, <code>chat/</code> 하위 구조로 컨트롤러·서비스·매퍼·모델을 묶는다.</div>
+</section>
+
+<!-- ===================== DB MODEL ===================== -->
+<section id="db">
+  <h2>데이터 모델</h2>
+  <p class="lead">MySQL <code>haru_db</code>, 5개 도메인 40+ 테이블. MyBatis XML 매퍼로 매핑.</p>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card" style="border-color:var(--core)">
+      <h4 style="color:var(--core)">User 도메인</h4>
+      <p><code>Users</code> · <code>UserAccountInfo</code> · <code>user_hobbies</code> · <code>hobbies</code> · <code>categories</code> · <code>category_hobbies</code> · <code>UserLocation</code> · <code>Notices</code> · <code>UnreadNotices</code> · <code>PointsDopamineActivity</code></p>
+    </div>
+    <div class="card" style="border-color:var(--accent2)">
+      <h4 style="color:var(--accent2)">Market 도메인</h4>
+      <p><code>Products</code> · <code>ProductImages</code> · <code>ProductRequests</code> · <code>Transactions</code> · <code>Payments</code> · <code>ServicePricing</code> · <code>Reviews</code></p>
+    </div>
+    <div class="card" style="border-color:var(--assist)">
+      <h4 style="color:var(--assist)">Board 도메인</h4>
+      <p><code>boards</code> · <code>Posts</code> · <code>Comments</code> · <code>PostImages</code> · <code>PostReactions</code> · <code>BoardMembers</code> · <code>Reports</code> · <code>ReportTypes</code></p>
+    </div>
+    <div class="card" style="border-color:var(--ai)">
+      <h4 style="color:var(--ai)">Chat / Assist 도메인</h4>
+      <p><code>chatrooms</code> · <code>messages</code> (Core 실시간 채팅) · <code>chat_messages</code> (Assist AI 챗봇 히스토리)</p>
+    </div>
+  </div>
+
+  <h3>핵심 관계</h3>
+  <svg viewBox="0 0 900 250" font-size="12">
+    <g fill="#16263b" stroke="#4ea1ff"><rect x="20" y="100" width="120" height="46" rx="8"/></g>
+    <text x="80" y="128" fill="#4ea1ff" text-anchor="middle" font-weight="700">Users</text>
+    <g fill="#1c2a1f" stroke="#7ee787">
+      <rect x="220" y="20" width="130" height="42" rx="8"/>
+      <rect x="220" y="100" width="130" height="46" rx="8"/>
+      <rect x="220" y="184" width="130" height="42" rx="8"/></g>
+    <text x="285" y="46" fill="#7ee787" text-anchor="middle">user_hobbies</text>
+    <text x="285" y="128" fill="#7ee787" text-anchor="middle" font-weight="700">Products</text>
+    <text x="285" y="210" fill="#7ee787" text-anchor="middle">boards / Posts</text>
+    <g fill="#251c33" stroke="#b083f0">
+      <rect x="430" y="100" width="130" height="46" rx="8"/></g>
+    <text x="495" y="128" fill="#b083f0" text-anchor="middle" font-weight="700">chatrooms</text>
+    <g fill="#33271a" stroke="#f2a85f">
+      <rect x="640" y="60" width="130" height="42" rx="8"/>
+      <rect x="640" y="140" width="130" height="42" rx="8"/></g>
+    <text x="705" y="86" fill="#f2a85f" text-anchor="middle">messages</text>
+    <text x="705" y="166" fill="#f2a85f" text-anchor="middle">Transactions</text>
+    <g stroke="#5b6877" fill="none" marker-end="url(#arr)">
+      <line x1="140" y1="116" x2="216" y2="48"/>
+      <line x1="140" y1="120" x2="216" y2="120"/>
+      <line x1="140" y1="128" x2="216" y2="200"/>
+      <line x1="350" y1="123" x2="426" y2="123"/>
+      <line x1="560" y1="116" x2="636" y2="86"/>
+      <line x1="350" y1="128" x2="636" y2="158"/>
+    </g>
+  </svg>
+  <p style="color:var(--muted);font-size:.84rem">Users ↔ hobbies(M:N) · Users 1:N Products · Products 1:1 chatrooms(거래요청) · chatrooms 1:N messages · Products 1:N Transactions.</p>
+  <div class="note">⚠️ 테이블 케이싱이 혼재(<code>Users</code> vs <code>boards</code>). 물리 리네임은 영향 범위가 커서 리팩토링에서는 코드 레벨 정합/문서화로만 다룬다.</div>
+</section>
+
+<!-- ===================== API ===================== -->
+<section id="api">
+  <h2>API 레퍼런스</h2>
+  <p class="lead">프론트는 모두 게이트웨이(<code>http://localhost:8080</code>) 경유. 아래는 다운스트림 실제 경로.</p>
+  <input class="search" id="apiSearch" placeholder="🔎 엔드포인트 검색 (예: chat, product, /auth, POST ...)" oninput="filterApi(this.value)">
+  <table id="apiTable">
+    <thead><tr><th>서비스</th><th>메서드</th><th>경로</th><th>설명</th></tr></thead>
+    <tbody>
+      <!-- AUTH -->
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/auth/signup</td><td>회원가입 (취미·카테고리 검증)</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/auth/login</td><td>로그인 (실패누적·계정잠금, JWT 발급)</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/auth/logout</td><td>로그아웃 (토큰 블랙리스트)</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method PUT">PUT</span></td><td class="path">/api/core/auth/me/password</td><td>비밀번호 변경</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/auth/me/withdrawal</td><td>회원 탈퇴</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method GET">GET</span></td><td class="path">/api/core/auth/oauth2/{google|naver|kakao}</td><td>소셜 로그인 리다이렉트</td></tr>
+      <!-- PROFILE -->
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method GET">GET</span></td><td class="path">/api/core/profiles/me</td><td>내 프로필 조회</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method PUT">PUT</span></td><td class="path">/api/core/profiles/me</td><td>프로필 수정 (이름·소개·취미)</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/profiles/me/image</td><td>프로필 이미지 업로드</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method GET">GET</span></td><td class="path">/api/core/profiles/user/{nickname}</td><td>공개 프로필 조회</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method GET">GET</span></td><td class="path">/api/core/profiles/mypage</td><td>마이페이지 대시보드</td></tr>
+      <!-- HOBBY -->
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method GET">GET</span></td><td class="path">/api/core/hobbies (·/categories ·/categories/{id})</td><td>취미·카테고리 목록</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/hobbies/user</td><td>사용자 취미 등록/수정</td></tr>
+      <!-- BOARD -->
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/boards</td><td>보드(모임) 생성</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method GET">GET</span></td><td class="path">/api/core/boards/{id} (·/hosted ·/joined ·/members)</td><td>보드 조회·내 보드·멤버</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/boards/{id}/members/{invite|accept|reject}</td><td>멤버 초대/수락/거절</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method PUT">PUT</span></td><td class="path">/api/core/boards/{id}/{status|host}</td><td>보드 상태·방장 위임</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/boards/{id}/posts</td><td>게시글 작성</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/boards/posts/{id}/comments (·/replies)</td><td>댓글·대댓글</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/boards/posts/{id}/reactions</td><td>게시글 리액션</td></tr>
+      <!-- MARKET -->
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/market/products/registers</td><td>상품 등록 (이미지 멀티파트)</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/market/products/requests/with-chat</td><td>거래 요청 + 채팅방 + 알림 생성</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/market/products/requests/approve</td><td>요청 승인 (판매자)</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/market/products/nearby</td><td>거리기반 근처 상품 조회</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/market/products/all/filter</td><td>카테고리·정렬 필터</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method GET">GET</span></td><td class="path">/api/core/market/products/{id} (·/images/{id})</td><td>상품 상세·이미지</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/market/transactions (·/payments)</td><td>거래·결제 생성</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/market/users/location</td><td>사용자 위치 갱신</td></tr>
+      <!-- CHAT -->
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/chat/rooms</td><td>채팅방 생성/조회 (상품 기반)</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method GET">GET</span></td><td class="path">/api/core/chat/rooms (·/active ·/{id})</td><td>채팅방 목록·활성·상세</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/chat/rooms/{id}/approve</td><td>판매자 승인</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method GET">GET</span></td><td class="path">/api/core/chat/rooms/{id}/messages</td><td>메시지 히스토리 (페이지네이션)</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method POST">POST</span></td><td class="path">/api/core/chat/messages (·/image)</td><td>메시지 전송 (REST · 이미지)</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method WS">WS</span></td><td class="path">/app/chat/send → /topic/chatroom/{id}</td><td>실시간 메시지 (STOMP)</td></tr>
+      <tr><td><span class="badge b-core">Core</span></td><td><span class="method WS">WS</span></td><td class="path">/app/location/{chatroomId}</td><td>실시간 위치 공유 (STOMP)</td></tr>
+      <!-- ASSIST -->
+      <tr><td><span class="badge b-assist">Assist</span></td><td><span class="method POST">POST</span></td><td class="path">/api/assist/cloudocr/process</td><td>Naver Cloud OCR (이미지 → 텍스트)</td></tr>
+      <tr><td><span class="badge b-assist">Assist</span></td><td><span class="method POST">POST</span></td><td class="path">/api/assist/sms/send-sms (·/verify-otp)</td><td>SMS OTP 발송·검증 (nurigo)</td></tr>
+      <tr><td><span class="badge b-assist">Assist</span></td><td><span class="method POST">POST</span></td><td class="path">/api/assist/tinylamanaver/chat</td><td>AI 챗봇 (히스토리 + 번역, FastAPI 연동)</td></tr>
+      <tr><td><span class="badge b-assist">Assist</span></td><td><span class="method GET">GET</span></td><td class="path">/api/assist/location/search (·/coord-to-address)</td><td>주소 검색·역지오코딩 (Kakao)</td></tr>
+      <!-- GATEWAY -->
+      <tr><td><span class="badge b-gw">GW</span></td><td><span class="method GET">RT</span></td><td class="path">/api/core/** · /api/assist/** · /api/fastapi/** · /ws/**</td><td>JWT 검증 후 다운스트림 라우팅</td></tr>
+      <tr><td><span class="badge b-ai">AI</span></td><td><span class="method POST">POST</span></td><td class="path">/api/fastapi/chat</td><td>TinyLlama 챗봇 ("Luffy" 고객지원)</td></tr>
+    </tbody>
+  </table>
+  <div class="note">게이트웨이 화이트리스트(JWT 우회): <code>/api/core/auth/{signup,login,logout,oauth2/**}</code>, <code>/api/core/hobbies(/**)</code>, <code>/ws(/**)</code>, <code>/topic/**</code>. <code>/api/fastapi/**</code>는 라우트에 JWT 필터를 아예 붙이지 않음(토큰 없는 서버-투-서버 콜백 전용). 그 외 모든 경로는 JWT 필수.</div>
+</section>
+
+<!-- ===================== FLOWS ===================== -->
+<section id="flows">
+  <h2>핵심 플로우</h2>
+  <h3>1. 인증 (JWT)</h3>
+  <div class="flow">React → <span class="hl">POST /api/core/auth/login</span> → GateWay(화이트리스트, 우회) → Core
+   Core: 비밀번호 검증 → 실패누적/계정잠금 체크 → <span class="hl">JWT 발급</span> → 응답
+이후 모든 요청: Authorization: Bearer &lt;jwt&gt; → GateWay <span class="hl">JwtAuthenticationFilter</span> 검증 → 통과 시 라우팅</div>
+
+  <h3>2. 실시간 채팅 (WebSocket / STOMP)</h3>
+  <div class="flow">React @stomp/stompjs → CONNECT <span class="hl">ws://localhost:8080/ws</span> (헤더에 JWT)
+   GateWay → Core WebSocketConfig: CONNECT 시 JWT 검증 → Principal 설정
+   전송: SEND /app/chat/send → Core → 저장(messages) → <span class="hl">/topic/chatroom/{id}</span> 브로드캐스트
+   알림: Redis Pub/Sub → /queue/notifications/{userEmail}</div>
+
+  <h3>3. 마켓 거래</h3>
+  <div class="flow">상품등록(이미지 멀티파트) → 근처상품 조회(거리기반) → <span class="hl">거래요청 with-chat</span>
+   → 채팅방+알림 자동 생성 → 판매자 승인 → 거래/결제 생성</div>
+
+  <h3>4. AI 챗봇</h3>
+  <div class="flow">React → /api/assist/tinylamanaver/chat → Assist
+   Assist: <span class="hl">chat_messages 히스토리 조회</span> → FastAPI(:8001 TinyLlama) 호출 → 번역 → 응답 저장</div>
+</section>
+
+<!-- ===================== FEATURES ===================== -->
+<section id="features">
+  <h2>기능 쇼케이스</h2>
+  <div class="grid g2">
+    <div class="card"><h4>🔐 인증 / 계정</h4><p>이메일+비밀번호, 소셜(Google·Naver·Kakao OAuth2), SMS OTP, 실패누적 계정잠금, 비밀번호 재설정, 회원탈퇴.</p></div>
+    <div class="card"><h4>🎨 취미 매칭</h4><p>카테고리-취미 계층, 사용자 취미 등록, 가입 시 취미 검증.</p></div>
+    <div class="card"><h4>🛒 위치기반 마켓</h4><p>상품 등록(다중 이미지)·거리기반 근처 검색·카테고리 필터·거래 요청/승인·거래/결제.</p></div>
+    <div class="card"><h4>💬 실시간 채팅</h4><p>STOMP WebSocket 실시간 메시지·이미지 전송·읽음 처리·승인 워크플로우·실시간 위치 공유.</p></div>
+    <div class="card"><h4>📋 보드 / 게시판</h4><p>모임 보드 생성·멤버 초대/수락·방장 위임·게시글·댓글/대댓글·리액션.</p></div>
+    <div class="card"><h4>🗺️ 지도 / 위치</h4><p>Leaflet 기반 최초로그인 위치 설정·상품 위치·거래 위치 공유·Kakao 주소검색/역지오코딩.</p></div>
+    <div class="card"><h4>💳 결제 OCR</h4><p>OpenCV.js로 카드 자동 인식·등록 카드 관리.</p></div>
+    <div class="card"><h4>🤖 AI 챗봇</h4><p>TinyLlama 기반 고객지원 챗봇, 세션 히스토리·영어 번역 파이프라인.</p></div>
+    <div class="card"><h4>🔔 실시간 알림</h4><p>Redis Pub/Sub + STOMP 푸시 알림, 미읽음 배지, 토스트.</p></div>
+    <div class="card"><h4>📱 PWA</h4><p>vite-plugin-pwa 설치형 앱·오프라인 캐싱·서비스워커.</p></div>
+  </div>
+</section>
+
+<!-- ===================== PORTFOLIO ===================== -->
+<section id="portfolio">
+  <h2>대표 구현 (STAR 요약)</h2>
+  <p class="lead">상세 서술은 <code>docs/portfolio/</code>의 STAR·PAAR·Interview QA 마크다운 참조.</p>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card"><h4>로그인 — 무차별 대입 방어</h4><p><b>S:</b> 비밀번호 공격 노출. <b>A:</b> 실패횟수 누적 + 임계치 계정잠금 + JWT 발급/블랙리스트. <b>R:</b> 반복 실패 차단·상태 기반 로그인 제어.</p></div>
+    <div class="card"><h4>취미 — 도메인 검증</h4><p><b>S:</b> 잘못된 카테고리-취미 조합 유입. <b>A:</b> category_hobbies 관계 기반 서버 검증. <b>R:</b> 데이터 정합성 보장.</p></div>
+    <div class="card"><h4>보드 — 역할 기반 접근제어</h4><p><b>S:</b> 권한 없는 보드 조작. <b>A:</b> 서비스 계층에서 멤버/방장 권한 검증(컨트롤러만 아님). <b>R:</b> 우회 불가한 인가.</p></div>
+    <div class="card"><h4>채팅 — REST/WS 책임 분리</h4><p><b>S:</b> 실시간성과 신뢰성 동시 요구. <b>A:</b> 전송은 STOMP, 히스토리·읽음은 REST. <b>R:</b> 역할 분리로 단순·견고.</p></div>
+  </div>
+</section>
+
+<!-- ===================== REFACTOR (placeholder) ===================== -->
+<section id="refactor">
+  <h2>리팩토링 (Before / After)</h2>
+  <p class="lead">포트폴리오를 위해 기능을 보존한 채 <b>보안 · 코드 품질 · 일관성 · 테스트</b>를 개선했다.
+  각 변경은 작은 단위로 커밋하고 컴파일·빌드·런타임 헬스체크로 회귀를 확인했다 (git baseline <code>d3ad328</code>).</p>
+
+  <h3>정량 지표 (Before → After)</h3>
+  <table>
+    <tr><th>지표</th><th>Before</th><th>After</th><th>방법</th></tr>
+    <tr><td>하드코딩 시크릿 (JWT secret 리터럴)</td><td>2</td><td><b class="hl">0</b></td><td>환경변수 외부화 (<code>${JWT_SECRET:dev}</code>)</td></tr>
+    <tr><td>백엔드 <code>System.out/err.println</code></td><td>45</td><td><b class="hl">0</b></td><td>SLF4J 전환 (12개 파일)</td></tr>
+    <tr><td>프론트 <code>console.log</code> (프로덕션 번들)</td><td>183</td><td><b class="hl">0</b></td><td>빌드 시 <code>esbuild.drop</code> (소스는 유지)</td></tr>
+    <tr><td>전역 예외 핸들러</td><td>0</td><td><b class="hl">1</b></td><td><code>@RestControllerAdvice</code></td></tr>
+    <tr><td>입력 검증 (auth DTO 제약)</td><td>0 (무효 @Valid)</td><td><b class="hl">동작</b></td><td><code>@NotBlank/@Email/@Size</code></td></tr>
+    <tr><td>백엔드 단위 테스트</td><td>0</td><td><b class="hl">22</b></td><td>JUnit5 + Validator + 컨트롤러 계약(standalone MockMvc) + TokenUtils (Core 16 · Assist 6)</td></tr>
+    <tr><td>컨트롤러 보일러플레이트 (<code>BoardController</code> 줄 수)</td><td>426</td><td><b class="hl">244</b></td><td>13개 메서드의 <code>401 가드 + try/catch</code> 중복 제거 → 전역 핸들러 위임</td></tr>
+    <tr><td>미사용 의존성 / 설정 버그</td><td>다수</td><td><b class="hl">정리</b></td><td>data-fns·URL버그·PWA·중복dep·deprecated prop</td></tr>
+    <tr><td>프론트 단위 테스트 (Vitest)</td><td>0</td><td><b class="hl">47</b></td><td>validation·slices·axios 인터셉터·productValidation (jsdom)</td></tr>
+    <tr><td>프론트 <code>any</code> 타입</td><td>45</td><td><b class="hl">14</b></td><td>공용 에러 헬퍼 + <code>unknown</code> 내로잉 (잔여 14 = opencv.js 타입부재 12 · 데모 2, 의도적)</td></tr>
+    <tr><td>거대 컴포넌트 줄 수 (4종)</td><td>741·402·401·301</td><td><b class="hl">601·353·108·158</b></td><td>프레젠테이셔널 컴포넌트·커스텀 훅·순수함수로 추출 (신규 7파일)</td></tr>
+    <tr><td>게이트웨이/Core 인가 화이트리스트 정합</td><td>불일치 (401 차단)</td><td><b class="hl">일치</b></td><td>참조 데이터 경로를 게이트웨이 <code>PUBLIC_PATHS</code>에 정합</td></tr>
+  </table>
+
+  <h3>주요 Before → After</h3>
+  <div class="grid g2">
+    <div class="card">
+      <h4>🔐 시크릿 외부화</h4>
+      <div class="flow"><span style="color:#ff7b8a">- jwt.secret=teamsketchprojectsecretkey...</span>
+<span class="hl">+ jwt.secret=${JWT_SECRET:haru-local-dev-...}</span></div>
+      <p style="margin-top:8px">JWT secret·OAuth2 자격증명·redirect·CORS 출처·게이트웨이 호스트·번역 API 키를 모두 환경변수로. 로컬은 dev 기본값으로 무중단 동작, prod는 주입.</p>
+    </div>
+    <div class="card">
+      <h4>🐛 로컬 챗봇 버그 수정</h4>
+      <div class="flow"><span style="color:#ff7b8a">- activeProfile = "prod"  // 하드코딩</span>
+<span style="color:#ff7b8a">- → 로컬에서도 gateway-container 호출</span>
+<span class="hl">+ @Value("${gateway.base-url:localhost:8080}")</span></div>
+      <p style="margin-top:8px">프로필이 항상 "prod"로 고정돼 로컬에서 컨테이너 호스트를 부르던 버그 제거.</p>
+    </div>
+    <div class="card">
+      <h4>📋 에러 응답 표준화</h4>
+      <div class="flow"><span style="color:#ff7b8a">검증 실패 → 401 + 깨진 한글(???)</span>
+<span class="hl">+ @RestControllerAdvice → 400 + UTF-8 JSON</span></div>
+      <p style="margin-top:8px">@Valid 실패가 security entry point로 흘러 401로 나오던 문제를, 전역 핸들러로 일관된 400 ApiResponse로 교정.</p>
+    </div>
+    <div class="card">
+      <h4>🧪 테스트 도입</h4>
+      <div class="flow"><span style="color:#ff7b8a">- 테스트 0개</span>
+<span class="hl">+ 인증 DTO 검증 6 cases (JUnit5)</span>
+<span class="hl">+ build.gradle useJUnitPlatform()</span></div>
+      <p style="margin-top:8px">JUnit Platform 미설정으로 테스트가 발견조차 안 되던 것까지 해결. DB 불필요한 순수 단위 테스트.</p>
+    </div>
+    <div class="card">
+      <h4>🧩 거대 컴포넌트 분리</h4>
+      <div class="flow"><span style="color:#ff7b8a">- ChatRoom.tsx 741줄 (UI+상태+이펙트+검증 혼재)</span>
+<span class="hl">+ ChatApprovalFlow · ChatMessageList · ChatInputZone 추출 → 601줄</span>
+<span class="hl">+ CameraModal 401→108: 카메라/OpenCV 로직 useCardScanner 훅으로</span></div>
+      <p style="margin-top:8px">기능 보존하며 4개 거대 컴포넌트를 프레젠테이셔널/훅/순수함수로 분리. <code>App</code>의 인라인 <code>NotificationHandler</code>는 매 렌더 재생성 버그까지 해소. <code>validateProductForm</code>은 단위테스트 8개 동반. <span class="hl">실브라우저(Claude-in-Chrome)로 채팅·등록폼·카메라 모달 동작 검증.</span></p>
+    </div>
+    <div class="card">
+      <h4>🧹 컨트롤러 보일러플레이트 제거</h4>
+      <div class="flow"><span style="color:#ff7b8a">- BoardController 13개 메서드 × (401 가드 + try/catch 3블록)</span>
+<span class="hl">+ tokenUtils.requireEmail(token) + 서비스 위임만 → 426줄→244줄</span></div>
+      <p style="margin-top:8px"><code>email==null→401</code>·<code>IllegalArgumentException→400</code>·<code>Exception→500</code> 세 패턴이 <code>GlobalExceptionHandler</code>와 정확히 일치 → 전역 핸들러로 위임. 401만 미커버였어서 <code>UnauthorizedException</code>+핸들러를 추가해 <b>응답 형태(ApiResponse status·code·data) 보존</b>. <span class="hl">계약 테스트 4개(401/400위임/200/인라인400)로 고정</span>. 부수효과로 <code>createBoard</code>가 모든 예외를 400으로 숨기던 잠재 버그도 정규화(500).</p>
+    </div>
+    <div class="card">
+      <h4>📦 파일 I/O → 서비스 이관</h4>
+      <div class="flow"><span style="color:#ff7b8a">- ProductController.getProductImage: 경로해석·존재확인·MIME감지</span>
+<span class="hl">+ ProductService.getProductImageResource() → 컨트롤러는 HTTP 헤더 조립만</span></div>
+      <p style="margin-top:8px">Fat 컨트롤러의 비즈니스 로직을 서비스로 이관(<code>ProductImageMapper</code> 의존성 제거). 반환은 중첩 레코드 <code>ProductImageFile</code>. 계약 테스트 2개(존재 200+헤더 / 미존재 404)로 고정.</p>
+    </div>
+    <div class="card">
+      <h4>🤖 AI 챗봇 로컬 E2E 복구</h4>
+      <div class="flow"><span style="color:#ff7b8a">- 게이트웨이 /api/fastapi/** 에 JWT 필터 → 토큰 없는 서버콜백 항상 401</span>
+<span style="color:#ff7b8a">- 빈 자격증명으로 번역 API 403 → 응답이 "INVALID EMAIL PROVIDED"</span>
+<span class="hl">+ FastAPI 라우트 JWT 제외 · 빈 key/email 파라미터 생략</span>
+<span class="hl">+ transformers/torch → llama.cpp(gguf), 모델경로 env 외부화</span></div>
+      <p style="margin-top:8px">사용자 진입점 <code>/api/assist/**</code>는 JWT 보호를 유지한 채, <b>유일한 호출자가 사용자 토큰을 안 싣는 서버-투-서버 콜백</b>인 <code>/api/fastapi/**</code>만 필터 제외(WS 라우트 선례). 번역 단계의 빈 자격증명 403도 수정. 모델은 <code>transformers+torch</code>→<b><code>llama.cpp</code>(gguf, Apple Silicon Metal)</b>로 바꾸고 윈도우 절대경로 하드코딩을 <code>LLAMA_MODEL_PATH</code> env로 외부화. <span class="hl">로그인 토큰으로 게이트웨이→Assist→번역→FastAPI(TinyLlama)→번역 전 구간 한국어 왕복 E2E 검증.</span></p>
+    </div>
+  </div>
+
+  <h3>트러블슈팅 사례 — 게이트웨이 / Core 인가(authorization) 화이트리스트 불일치</h3>
+  <p class="lead">실 사용 중 발견한 "간헐적 버그"를 라이브 디버깅으로 근본 원인까지 추적하고, 여러 해결안의 트레이드오프를 비교해 최소·정합 수정으로 끝낸 사례.</p>
+
+  <div class="card" style="margin-bottom:14px">
+    <h4>🐞 증상 (Problem)</h4>
+    <p>회원가입·상품등록 화면에서 <b>카테고리/취미 드롭다운이 떴다 안 떴다</b> 했다. DB에는 카테고리 20종·취미 데이터가 분명히 있고, 쿼리·프론트 파싱도 정상인데 화면만 비었다. 재현이 들쭉날쭉해 원인 파악이 까다로웠다.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <h4>🔬 원인 진단 (Root Cause)</h4>
+    <p>브라우저 확장 기반 라이브 디버깅(네트워크·콘솔 + 페이지 컨텍스트 <code>fetch</code>)으로 호출을 직접 관찰했다. 같은 페이지에서 토큰 유무만 바꿔 호출하니 결정적 단서가 나왔다:</p>
+    <div class="flow"><span style="color:#ff7b8a">GET /api/core/hobbies/categories  (토큰 없음) → 401 "로그인이 필요한 서비스입니다."</span>
+<span class="hl">GET /api/core/hobbies/categories  (유효 토큰) → 200 + data[20]</span></div>
+    <p style="margin-top:8px">CoreService <code>SecurityConfig</code>는 이 경로를 <b>이미 <code>permitAll</code>로 공개</b>했지만, <b>게이트웨이 <code>JwtAuthenticationFilter.PUBLIC_PATHS</code>에 누락</b>돼 있었다. 즉 게이트웨이가 Core에 닿기도 전에 401로 끊은 것 — <b>다계층 인가의 화이트리스트 불일치</b>. 그래서 토큰이 유효할 때만 통과했고, <b>회원가입은 항상 비고(로그아웃), 상품등록은 토큰 만료 시 재현</b>되어 "간헐적"으로 보였다.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <h4>⚖️ 해결 옵션 비교 (Options &amp; Trade-offs)</h4>
+    <table style="margin:6px 0">
+      <tr><th>옵션</th><th>장점</th><th>단점</th></tr>
+      <tr><td>① 프론트에 카테고리/취미 정적 하드코딩</td><td>네트워크 호출 제거, 즉시 표시</td><td>DB와 <b>이중 관리</b>, 데이터 변경 때마다 <b>재배포</b>, 단일 출처(SSOT) 위배</td></tr>
+      <tr><td>② 공개 화면용 임시 토큰 발급 후 호출</td><td>기존 인증 경로 재사용</td><td>공개 참조 데이터에 인증을 끼우는 <b>부자연스러움</b>, 인증 흐름·발급 로직 복잡도↑</td></tr>
+      <tr><td class="hl">③ 게이트웨이 <code>PUBLIC_PATHS</code>에 hobby 경로 추가 → Core와 정합 <b>(채택)</b></td><td><b>1파일·2줄</b> 수정, DB <b>단일 출처 유지</b>, 인증 의존 제거로 <b>토큰 만료와 무관</b>하게 동작</td><td>게이트웨이/Core 두 곳의 화이트리스트를 함께 관리해야 함(정합성 책임)</td></tr>
+    </table>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <h4>✅ 선택 &amp; 근거 (Decision)</h4>
+    <p>취미·카테고리는 <b>본질적으로 공개 참조 데이터</b>이고, <b>Core가 이미 공개로 설계</b>해 둔 상태였다. 따라서 "게이트웨이를 Core 정책에 맞춰 정합"시키는 ③이 의도에 가장 부합하고, 변경 범위가 가장 작으며(=회귀 위험 최소), 데이터 단일 출처도 지킨다.</p>
+    <div class="flow"><span style="color:#ff7b8a">  // GateWay JwtAuthenticationFilter.PUBLIC_PATHS — 누락</span>
+<span class="hl">+ "/api/core/hobbies",</span>
+<span class="hl">+ "/api/core/hobbies/**",   // CoreService SecurityConfig와 동일하게 공개</span></div>
+    <p style="margin-top:8px"><b>검증:</b> 토큰 없이 두 엔드포인트 <code>200</code> 회복 · 로그아웃 상태 회원가입에서 드롭다운 <b>21개 옵션</b> 정상 렌더 · 보호 라우트(상품 등록)는 <b>여전히 <code>401</code></b> → 보안 회귀 없음.</p>
+  </div>
+
+  <div class="note">💡 <b>배운 점:</b> 게이트웨이 + 서비스로 인가가 이중화된 구조에서는 <b>공개 경로 화이트리스트가 단일 출처에서 어긋나기 쉽다.</b> "DB·서비스는 맞는데 화면만 빈다"면 가장 바깥 계층(게이트웨이)의 인가부터 의심하고, 계층별 화이트리스트 정합을 점검해야 한다.</div>
+
+  <h3>개선 계획 (다음 단계)</h3>
+  <div class="note">회귀 위험이 큰 항목은 <b>테스트(Vitest 47)를 먼저 확보한 뒤</b> 단계적으로 진행한다.
+  거대 컴포넌트 분리·타입 강화는 이 방식으로 <b>완료</b>했고(실브라우저 검증 포함), 아래는 남은 백엔드 중심 작업이다.</div>
+  <div class="grid g2">
+    <div class="card"><h4>토큰 추출 단일화 ✅</h4><p><code>substring(7)</code>/<code>.replace("Bearer ","")</code>로 흩어진 Bearer 제거를 상위 호출부(<code>ProfileController</code>·<code>AuthService</code>·<code>WebSocketConfig</code>·Assist <code>LlamaController</code>)만 <code>TokenUtils.extractTokenWithoutBearer</code>로 통합. <code>WebSocketConfig</code>는 전역 <code>.replace</code>→<b>접두사 전용 strip</b>(실 JWT엔 동치, STOMP 핸드셰이크 보존). 보안 프리미티브(<code>JwtTokenProvider</code>·필터)·Gateway는 <b>순환의존/서비스 분리</b>로 제외. 계약 단위 테스트 동반(Core 12→16, Assist 첫 테스트 6).</p></div>
+    <div class="card"><h4>응답 래퍼 — 도메인 경계 문서화 ✅</h4><p>실측 결과 <code>BaseResponse</code>(7파일)/<code>ApiResponse</code>(15파일)는 한 파일 혼재가 아니라 <b>도메인별로 갈린 평행 래퍼</b>(JSON 계약 자체가 다름). 풀 단일화는 프론트 호출부까지 동시 변경되는 高위험이라, <b>경계 명문화 + "신규=ApiResponse+@RestControllerAdvice" 규약</b>으로 마감.</p></div>
+    <div class="card"><h4>FastAPI AI 챗봇 로컬 E2E 통합 ✅</h4><p><code>llamaServer.py</code>를 <code>transformers+torch</code>→<b><code>llama.cpp</code>(gguf)</b>로 전환(Apple Silicon Metal, 모델 경로 <code>LLAMA_MODEL_PATH</code> 외부화·윈도우 절대경로 하드코딩 제거). 체인 두 버그 수정: ①게이트웨이 <code>/api/fastapi/**</code>의 JWT 필터가 <b>토큰 없는 서버-투-서버 콜백</b>을 401로 끊던 문제 ②빈 자격증명으로 MyMemory 번역이 403 <code>INVALID EMAIL</code>을 반환하던 문제. <span class="hl">로그인 토큰 → GW <code>/api/assist/tinylamanaver/chat</code> 한국어 질문 → 한국어 답변(번역 ko→en→TinyLlama→en→ko) E2E 검증·<code>chat_messages</code> 영속 확인.</span></p></div>
+    <div class="card"><h4>완료 ✅</h4><p>거대 컴포넌트 4종 분리·타입 강화(<code>any</code> 45→14)·프론트 Vitest 47개·게이트웨이 인가 정합(실브라우저 검증), <b>백엔드: 파일 I/O 서비스 이관·컨트롤러 보일러플레이트 제거(전역 핸들러 위임)·로컬 채팅 API 500 복구(<code>productrequests</code> 테이블 셋업)</b>.</p></div>
+  </div>
+
+  <h3>배포</h3>
+  <p style="color:var(--muted);font-size:.9rem">이 문서는 외부 의존성 없는 단일 HTML이라 그대로 첨부·정적호스팅·포트폴리오 링크가 가능하다.
+  소스 트리에서는 <code>docs/**/*.html</code>이 git에서 제외되어, 코드 저장소를 더럽히지 않고 산출물만 별도 공유한다.</p>
+</section>
+
+</main>
+
+<footer>
+  Haru Implementation Overview · 단일 자체완결 HTML (외부 의존성 없음) · 생성: Phase 1 스냅샷
+  · 코드 git baseline <code>d3ad328</code>
+</footer>
+
+<script>
+  // 스크롤 스파이
+  const links=[...document.querySelectorAll('nav.side a')];
+  const secs=links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const spy=()=>{let cur=secs[0];for(const s of secs){if(s.getBoundingClientRect().top<=120)cur=s;}
+    links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+cur.id));};
+  document.addEventListener('scroll',spy,{passive:true});spy();
+  // API 검색 필터
+  function filterApi(q){q=q.trim().toLowerCase();
+    document.querySelectorAll('#apiTable tbody tr').forEach(tr=>{
+      tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none';});}
+</script>
+</body>
+</html>

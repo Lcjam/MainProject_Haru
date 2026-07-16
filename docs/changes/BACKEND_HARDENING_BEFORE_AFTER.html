@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BACKEND HARDENING BEFORE / AFTER (Task 3-A)</title>
+<style>
+:root{
+  --bg:#0f1419; --panel:#171d26; --panel2:#1d2530; --line:#2a3340;
+  --txt:#e6edf3; --muted:#9aa7b4; --accent:#4ea1ff; --accent2:#7ee787;
+  --warn:#f2a85f; --danger:#f06f9c;
+  --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  font-size:15px;line-height:1.7;display:flex}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--mono);background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:.86em;color:#cdd9e5}
+pre{background:var(--panel2);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;font-size:.82rem;line-height:1.55;color:#cdd9e5}
+pre .lang{display:block;color:#5b6877;font-size:.68rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+h1,h2,h3,h4{line-height:1.3;margin:0 0 .5em}
+h1{font-size:2rem;margin-bottom:.3em}
+h2{font-size:1.5rem;border-bottom:1px solid var(--line);padding-bottom:.35em;margin-top:2em;scroll-margin-top:20px}
+h3{font-size:1.12rem;color:var(--accent2);margin-top:1.7em}
+h4{font-size:1rem;color:var(--warn);margin-top:1.3em}
+nav.side{position:fixed;top:0;left:0;width:260px;height:100vh;overflow-y:auto;
+  background:var(--panel);border-right:1px solid var(--line);padding:22px 0}
+nav.side .brand{padding:0 22px 6px;font-weight:700;font-size:1.2rem;letter-spacing:.5px}
+nav.side .brand span{color:var(--accent)}
+nav.side .tag{display:block;padding:0 22px 14px;color:var(--muted);font-size:.76rem;line-height:1.45}
+nav.side a{display:block;color:var(--muted);padding:6px 22px;font-size:.85rem;border-left:3px solid transparent}
+nav.side a:hover{color:var(--txt);background:var(--panel2);text-decoration:none}
+nav.side a.lvl3{padding-left:34px;font-size:.8rem}
+nav.side a.lvl4{padding-left:46px;font-size:.76rem;color:#7a8694}
+main{margin-left:260px;padding:46px 54px 120px;max-width:1000px;width:100%}
+.lead{color:var(--muted);font-size:1.02rem;max-width:780px}
+ul{padding-left:1.3em;margin:10px 0}
+li{margin:5px 0;color:#cdd9e5}
+hr{border:none;border-top:1px solid var(--line);margin:40px 0}
+strong{color:#fff;font-weight:600}
+p{margin:12px 0}
+.codepath{display:block;margin:14px 0;padding:10px 14px;background:var(--panel2);
+  border-left:3px solid var(--accent);border-radius:0 8px 8px 0;font-size:.84rem;color:var(--muted)}
+.codepath code{background:#0f1419}
+footer{margin-left:260px;padding:24px 54px;color:#5b6877;font-size:.8rem;border-top:1px solid var(--line)}
+footer a{color:#5b6877;text-decoration:underline}
+@media(max-width:820px){
+  body{display:block}
+  nav.side{position:static;width:100%;height:auto;border-right:none;border-bottom:1px solid var(--line)}
+  main,footer{margin-left:0;padding:28px 20px 80px}
+}
+</style>
+</head>
+<body>
+<nav class="side">
+  <div class="brand"><span>Haru</span> Docs</div>
+  <span class="tag">BACKEND HARDENING BEFORE / AFTER (Task 3-A)</span>
+  <a href="#문서-목적">문서 목적</a>
+  <a href="#1-authcontroller-me-password-notoken-제거">1) AuthController: /me/password/notoken 제거</a>
+  <a href="#problem" class="lvl3">Problem</a>
+  <a href="#before-code-snippet" class="lvl3">Before code snippet</a>
+  <a href="#after-code-snippet" class="lvl3">After code snippet</a>
+  <a href="#why-changed" class="lvl3">Why changed</a>
+  <a href="#risk-impact" class="lvl3">Risk / Impact</a>
+  <a href="#2-securityconfig-비밀번호-변경-라우트-인증-정책-변경">2) SecurityConfig: 비밀번호 변경 라우트 인증 정책 변경</a>
+  <a href="#problem-1" class="lvl3">Problem</a>
+  <a href="#before-code-snippet-1" class="lvl3">Before code snippet</a>
+  <a href="#after-code-snippet-1" class="lvl3">After code snippet</a>
+  <a href="#why-changed-1" class="lvl3">Why changed</a>
+  <a href="#risk-impact-1" class="lvl3">Risk / Impact</a>
+  <a href="#3-gateway-jwtauthenticationfilter-공개-경로-축소-jwt-키-파생-정렬">3) GateWay JwtAuthenticationFilter: 공개 경로 축소 + JWT 키 파생 정렬</a>
+  <a href="#problem-2" class="lvl3">Problem</a>
+  <a href="#before-code-snippet-2" class="lvl3">Before code snippet</a>
+  <a href="#after-code-snippet-2" class="lvl3">After code snippet</a>
+  <a href="#why-changed-2" class="lvl3">Why changed</a>
+  <a href="#risk-impact-2" class="lvl3">Risk / Impact</a>
+  <a href="#4-authservice-registeruser-insert-실패-처리-catch-롤백-강제">4) AuthService.registerUser: insert 실패 처리 + catch 롤백 강제</a>
+  <a href="#problem-3" class="lvl3">Problem</a>
+  <a href="#before-code-snippet-3" class="lvl3">Before code snippet</a>
+  <a href="#after-code-snippet-3" class="lvl3">After code snippet</a>
+  <a href="#why-changed-3" class="lvl3">Why changed</a>
+  <a href="#risk-impact-3" class="lvl3">Risk / Impact</a>
+  <a href="#5-chatmessageservice-접근-검증-일원화-productid-신뢰-경로-정리-모집완료-규칙-복원-이미지-저장-전-인증">5) ChatMessageService: 접근 검증 일원화 + productId 신뢰 경로 정리 + 모집완료 규칙 복원 + 이미지 저장 전 인증</a>
+  <a href="#5-1-productid를-요청값이-아닌-채팅방-기준으로-파생" class="lvl3">5-1) productId를 요청값이 아닌 채팅방 기준으로 파생</a>
+  <a href="#problem-4" class="lvl4">Problem</a>
+  <a href="#before-code-snippet-4" class="lvl4">Before code snippet</a>
+  <a href="#after-code-snippet-4" class="lvl4">After code snippet</a>
+  <a href="#why-changed-4" class="lvl4">Why changed</a>
+  <a href="#risk-impact-4" class="lvl4">Risk / Impact</a>
+  <a href="#5-2-validatechatroomaccess-공통화" class="lvl3">5-2) validateChatRoomAccess 공통화</a>
+  <a href="#problem-5" class="lvl4">Problem</a>
+  <a href="#before-code-snippet-5" class="lvl4">Before code snippet</a>
+  <a href="#after-code-snippet-5" class="lvl4">After code snippet</a>
+  <a href="#why-changed-5" class="lvl4">Why changed</a>
+  <a href="#risk-impact-5" class="lvl4">Risk / Impact</a>
+  <a href="#5-3-모집-완료-비노출-상품-승인자만-채팅-가능-규칙-복원" class="lvl3">5-3) 모집 완료(비노출) 상품 승인자만 채팅 가능 규칙 복원</a>
+  <a href="#problem-6" class="lvl4">Problem</a>
+  <a href="#before-code-snippet-6" class="lvl4">Before code snippet</a>
+  <a href="#after-code-snippet-6" class="lvl4">After code snippet</a>
+  <a href="#why-changed-6" class="lvl4">Why changed</a>
+  <a href="#risk-impact-6" class="lvl4">Risk / Impact</a>
+  <a href="#5-4-이미지-업로드-인증-선검증-auth-before-write" class="lvl3">5-4) 이미지 업로드 인증 선검증(auth-before-write)</a>
+  <a href="#problem-7" class="lvl4">Problem</a>
+  <a href="#before-code-snippet-7" class="lvl4">Before code snippet</a>
+  <a href="#after-code-snippet-7" class="lvl4">After code snippet</a>
+  <a href="#why-changed-7" class="lvl4">Why changed</a>
+  <a href="#risk-impact-7" class="lvl4">Risk / Impact</a>
+  <a href="#6-webconfig-chat-images-리소스-경로-정렬">6) WebConfig: /chat-images/ 리소스 경로 정렬</a>
+  <a href="#problem-8" class="lvl3">Problem</a>
+  <a href="#before-code-snippet-8" class="lvl3">Before code snippet</a>
+  <a href="#after-code-snippet-8" class="lvl3">After code snippet</a>
+  <a href="#why-changed-8" class="lvl3">Why changed</a>
+  <a href="#risk-impact-8" class="lvl3">Risk / Impact</a>
+  <a href="#검증-상태-및-한계">검증 상태 및 한계</a>
+  <a href="#수행한-확인" class="lvl3">수행한 확인</a>
+  <a href="#미해결-검증-한계" class="lvl3">미해결 검증 한계</a>
+</nav>
+<main>
+<h1>BACKEND HARDENING BEFORE / AFTER (Task 3-A)</h1>
+<h2 id="문서-목적">문서 목적</h2>
+<p>본 문서는 Task 3-A에서 완료된 백엔드 하드닝 작업을 코드 레벨로 설명한다. 인터뷰/코드리뷰에서 바로 확인할 수 있도록 각 변경점마다 <code>Problem</code>, <code>Before</code>, <code>After</code>, <code>Why</code>, <code>Risk/Impact</code>를 포함했다.</p>
+<ul>
+<li>범위: AuthController, SecurityConfig, GateWay JwtAuthenticationFilter, AuthService.registerUser, ChatMessageService, WebConfig</li>
+<li>참고: <code>Before</code> 코드는 현재 저장소 기준 제거/수정된 동작을 축약 재구성한 스니펫이다(전체 파일 인용 아님).</li>
+</ul>
+<hr>
+<h2 id="1-authcontroller-me-password-notoken-제거">1) AuthController: <code>/me/password/notoken</code> 제거</h2>
+<h3 id="problem">Problem</h3>
+<p>비밀번호 변경 API가 토큰 없는 경로(<code>/me/password/notoken</code>)로도 열려 있으면, 인증 컨텍스트 없이 계정 비밀번호 변경 로직에 도달할 수 있는 설계 취약점이 생긴다.</p>
+<h3 id="before-code-snippet">Before code snippet</h3>
+<pre><span class="lang">java</span><code>// AuthController (변경 전 패턴)
+@PutMapping(&quot;/me/password/notoken&quot;)
+public ResponseEntity&lt;PasswordChangeResponse&gt; changePasswordWithoutToken(
+        @RequestBody PasswordChangeRequest request) {
+    PasswordChangeResponse response = userService.changePassword(request); // email 기반
+    return response.isSuccess() ? ResponseEntity.ok(response)
+            : ResponseEntity.badRequest().body(response);
+}</code></pre>
+<h3 id="after-code-snippet">After code snippet</h3>
+<pre><span class="lang">java</span><code>// CoreService/src/main/java/com/example/demo/controller/AuthController.java
+@PutMapping(&quot;/me/password&quot;)
+public ResponseEntity&lt;PasswordChangeResponse&gt; changePassword(
+        @RequestHeader(&quot;Authorization&quot;) String token,
+        @RequestBody PasswordChangeRequest request) {
+    PasswordChangeResponse response = userService.changePasswordByToken(token, request);
+
+    if (!response.isSuccess()) {
+        return ResponseEntity.badRequest().body(response);
+    }
+    return ResponseEntity.ok(response);
+}</code></pre>
+<h3 id="why-changed">Why changed</h3>
+<p>비밀번호 변경을 &quot;인증된 본인&quot; 시나리오로 강제해 계정 탈취/우회 변경 가능성을 줄이기 위함이다.</p>
+<h3 id="risk-impact">Risk / Impact</h3>
+<ul>
+<li>기존 클라이언트가 <code>/me/password/notoken</code> 호출 중이면 즉시 404/정책 차단 영향이 발생한다.</li>
+<li>프론트/모바일은 반드시 <code>Authorization: Bearer &lt;JWT&gt;</code> 기반 <code>/api/core/auth/me/password</code>로 마이그레이션해야 한다.</li>
+</ul>
+<hr>
+<h2 id="2-securityconfig-비밀번호-변경-라우트-인증-정책-변경">2) SecurityConfig: 비밀번호 변경 라우트 인증 정책 변경</h2>
+<h3 id="problem-1">Problem</h3>
+<p>비밀번호 변경 엔드포인트가 <code>permitAll()</code>에 섞여 있으면, 컨트롤러 코드와 무관하게 보안 필터 체인에서 우선 우회될 수 있다.</p>
+<h3 id="before-code-snippet-1">Before code snippet</h3>
+<pre><span class="lang">java</span><code>// SecurityConfig (변경 전 패턴)
+.authorizeHttpRequests(auth -&gt; auth
+    .requestMatchers(
+        &quot;/api/core/auth/signup&quot;,
+        &quot;/api/core/auth/login&quot;,
+        &quot;/api/core/auth/me/password&quot;,          // 공개로 열려 있던 패턴
+        &quot;/api/core/auth/me/password/notoken&quot;   // 공개 변경 경로
+    ).permitAll()
+)</code></pre>
+<h3 id="after-code-snippet-1">After code snippet</h3>
+<pre><span class="lang">java</span><code>// CoreService/src/main/java/com/example/demo/config/SecurityConfig.java
+.authorizeHttpRequests(auth -&gt; auth
+    .requestMatchers(
+        &quot;/api/core/auth/signup&quot;,
+        &quot;/api/core/auth/login&quot;,
+        &quot;/api/core/auth/logout&quot;
+    ).permitAll()
+    .requestMatchers(
+        &quot;/api/core/auth/me/password&quot;
+    ).authenticated()
+)</code></pre>
+<h3 id="why-changed-1">Why changed</h3>
+<p>&quot;회원가입/로그인&quot; 같은 공개 경로와 &quot;계정 보안 변경&quot; 경로를 분리해 정책 혼선을 제거하고, 필터 체인 차원에서 최소 권한을 강제하기 위해서다.</p>
+<h3 id="risk-impact-1">Risk / Impact</h3>
+<ul>
+<li>인증 미첨부 요청은 401/403으로 바뀐다.</li>
+<li>QA 시나리오에서 비밀번호 변경 테스트는 토큰 발급 절차를 선행해야 한다.</li>
+</ul>
+<hr>
+<h2 id="3-gateway-jwtauthenticationfilter-공개-경로-축소-jwt-키-파생-정렬">3) GateWay JwtAuthenticationFilter: 공개 경로 축소 + JWT 키 파생 정렬</h2>
+<h3 id="problem-2">Problem</h3>
+<p>1. 공개 경로가 넓으면 Gateway에서 사실상 인증 우회 구간이 커진다.</p>
+<p>2. Gateway와 CoreService의 JWT 서명키 파생 방식이 다르면, 한쪽에서 발급한 토큰을 다른 쪽이 불일치로 거부할 수 있다.</p>
+<h3 id="before-code-snippet-2">Before code snippet</h3>
+<pre><span class="lang">java</span><code>// JwtAuthenticationFilter (변경 전 패턴)
+private static final List&lt;String&gt; PUBLIC_PATHS = Arrays.asList(
+    &quot;/api/core/auth/**&quot;,
+    &quot;/api/core/chat/**&quot;,      // 과도하게 넓은 공개 경로
+    &quot;/api/core/market/**&quot;
+);
+
+private boolean validateToken(String token) {
+    SecretKey signingKey = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+    Jwts.parserBuilder().setSigningKey(signingKey).build().parseClaimsJws(token);
+    return true;
+}</code></pre>
+<h3 id="after-code-snippet-2">After code snippet</h3>
+<pre><span class="lang">java</span><code>// GateWay/src/main/java/com/example/demo/filter/JwtAuthenticationFilter.java
+private static final List&lt;String&gt; PUBLIC_PATHS = Arrays.asList(
+        &quot;/api/core/auth/signup&quot;,
+        &quot;/api/core/auth/login&quot;,
+        &quot;/api/core/auth/logout&quot;,
+        &quot;/api/core/auth/oauth2/**&quot;,
+        &quot;/ws&quot;,
+        &quot;/ws/**&quot;,
+        &quot;/topic/**&quot;
+);
+
+private boolean validateToken(String token) {
+    String base64EncodedSecretKey = Base64.getEncoder()
+            .encodeToString(secretKey.getBytes(StandardCharsets.UTF_8));
+    SecretKey signingKey = Keys.hmacShaKeyFor(base64EncodedSecretKey.getBytes(StandardCharsets.UTF_8));
+
+    Jwts.parserBuilder()
+            .setSigningKey(signingKey)
+            .build()
+            .parseClaimsJws(token);
+    return true;
+}</code></pre>
+<h3 id="why-changed-2">Why changed</h3>
+<ul>
+<li>공개 경로를 로그인/회원가입/WS handshake 등 필수 범위로 줄여 Gateway 선단에서 먼저 차단하기 위함.</li>
+<li><code>JwtTokenProvider</code>와 동일한 키 파생 규칙(Base64 인코딩 후 HMAC key 생성)으로 맞춰 토큰 상호 검증 일관성을 확보하기 위함.</li>
+</ul>
+<h3 id="risk-impact-2">Risk / Impact</h3>
+<ul>
+<li>기존에 무토큰 접근하던 API가 Gateway에서 즉시 401을 받을 수 있다.</li>
+<li>운영 환경에서 <code>jwt.secret</code>/Core JWT secret 설정이 논리적으로 동일하지 않으면 인증 실패가 증가한다.</li>
+</ul>
+<hr>
+<h2 id="4-authservice-registeruser-insert-실패-처리-catch-롤백-강제">4) AuthService.registerUser: insert 실패 처리 + catch 롤백 강제</h2>
+<h3 id="problem-3">Problem</h3>
+<p>회원 기본정보 insert 실패(result &lt;= 0) 시 후속 로직이 진행되거나, 예외 catch에서 트랜잭션 롤백이 명시되지 않으면 부분 저장/불일치 데이터 위험이 있다.</p>
+<h3 id="before-code-snippet-3">Before code snippet</h3>
+<pre><span class="lang">java</span><code>// AuthService.registerUser (변경 전 패턴)
+int result = userMapper.insertUser(user);
+
+// insert 결과 검증 없이 후속 처리 진행 가능
+userMapper.initializeUserActivity(request.getEmail(), 50, 0);
+hobbyService.registerUserHobbies(request.getEmail(), request.getHobbies());
+
+return SignupResponse.builder().success(true).build();
+
+// catch 에서 롤백 명시 없음</code></pre>
+<h3 id="after-code-snippet-3">After code snippet</h3>
+<pre><span class="lang">java</span><code>// CoreService/src/main/java/com/example/demo/service/AuthService.java
+int result = userMapper.insertUser(user);
+
+if (result &gt; 0) {
+    int initialDopamine = 50;
+    int initialPoints = 0;
+    userMapper.initializeUserActivity(request.getEmail(), initialDopamine, initialPoints);
+
+    if (request.getHobbies() != null &amp;&amp; !request.getHobbies().isEmpty()) {
+        hobbyService.registerUserHobbies(request.getEmail(), request.getHobbies());
+    }
+
+    return SignupResponse.builder()
+            .success(true)
+            .email(request.getEmail())
+            .initialDopamine(initialDopamine)
+            .initialPoints(initialPoints)
+            .build();
+} else {
+    log.error(&quot;회원가입 실패 - 사용자 기본 정보 저장 실패, 이메일: {}, insertUser 결과: {}&quot;, request.getEmail(), result);
+    return SignupResponse.builder().success(false).message(&quot;회원가입에 실패하였습니다.&quot;).build();
+}
+
+// 예외 시 롤백 강제
+catch (Exception e) {
+    log.error(&quot;회원가입 중 오류 발생 - 이메일: {}&quot;, request.getEmail(), e);
+    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+    return SignupResponse.builder().success(false).message(&quot;회원가입 중 오류가 발생했습니다.&quot;).build();
+}</code></pre>
+<h3 id="why-changed-3">Why changed</h3>
+<p>회원가입을 &quot;다중 단계 쓰기&quot; 트랜잭션으로 보고, 첫 단계 실패/중간 예외 모두를 실패로 수렴시켜 데이터 정합성을 지키기 위해서다.</p>
+<h3 id="risk-impact-3">Risk / Impact</h3>
+<ul>
+<li>이전보다 실패 응답이 명확해져, 클라이언트가 실패 케이스를 더 자주 체감할 수 있다(실제론 정상 동작).</li>
+<li>DB/매퍼 오류 시 부분 성공이 줄고, 전체 실패로 일관 처리된다.</li>
+</ul>
+<hr>
+<h2 id="5-chatmessageservice-접근-검증-일원화-productid-신뢰-경로-정리-모집완료-규칙-복원-이미지-저장-전-인증">5) ChatMessageService: 접근 검증 일원화 + productId 신뢰 경로 정리 + 모집완료 규칙 복원 + 이미지 저장 전 인증</h2>
+<h3 id="5-1-productid를-요청값이-아닌-채팅방-기준으로-파생">5-1) productId를 요청값이 아닌 채팅방 기준으로 파생</h3>
+<h4 id="problem-4">Problem</h4>
+<p>메시지 요청의 <code>productId</code>를 그대로 신뢰하면, 채팅방-상품 불일치 데이터가 저장될 수 있다.</p>
+<h4 id="before-code-snippet-4">Before code snippet</h4>
+<pre><span class="lang">java</span><code>// 변경 전 패턴
+ChatMessage message = ChatMessage.builder()
+        .chatroomId(request.getChatroomId())
+        .productId(request.getProductId()) // 클라이언트 입력 신뢰
+        .content(request.getContent())
+        .build();</code></pre>
+<h4 id="after-code-snippet-4">After code snippet</h4>
+<pre><span class="lang">java</span><code>// CoreService/src/main/java/com/example/demo/service/ChatMessageService.java
+ChatRoom chatRoom = chatRoomMapper.findChatRoomById(request.getChatroomId(), senderEmail);
+validateChatRoomAccess(chatRoom, senderEmail);
+
+ChatMessage message = ChatMessage.builder()
+        .chatroomId(request.getChatroomId())
+        .senderEmail(senderEmail)
+        .productId(chatRoom.getProductId()) // 서버가 채팅방에서 파생
+        .content(request.getContent())
+        .messageType(request.getMessageType())
+        .build();</code></pre>
+<h4 id="why-changed-4">Why changed</h4>
+<p>도메인 기준값(<code>chatRoom.productId</code>)을 단일 진실원으로 사용해 위변조/불일치 입력을 차단하기 위해서다.</p>
+<h4 id="risk-impact-4">Risk / Impact</h4>
+<ul>
+<li>클라이언트가 보내는 <code>productId</code>는 사실상 무시되므로, 클라이언트 필드 의존 로직은 정리 필요.</li>
+</ul>
+<hr>
+<h3 id="5-2-validatechatroomaccess-공통화">5-2) validateChatRoomAccess 공통화</h3>
+<h4 id="problem-5">Problem</h4>
+<p>메시지 전송/조회/읽음/이미지 업로드마다 권한 검증이 제각각이면 누락 지점이 생긴다.</p>
+<h4 id="before-code-snippet-5">Before code snippet</h4>
+<pre><span class="lang">java</span><code>// 변경 전 패턴: 메서드별 분산 체크
+if (chatRoom == null) throw new IllegalArgumentException(&quot;존재하지 않는 채팅방입니다.&quot;);
+if (!userEmail.equals(chatRoom.getSellerEmail()) &amp;&amp; !userEmail.equals(chatRoom.getRequestEmail())) {
+    throw new IllegalArgumentException(&quot;접근 권한이 없습니다.&quot;);
+}
+// 일부 메서드는 위 검증 자체가 누락될 수 있음</code></pre>
+<h4 id="after-code-snippet-5">After code snippet</h4>
+<pre><span class="lang">java</span><code>// CoreService/src/main/java/com/example/demo/service/ChatMessageService.java
+private void validateChatRoomAccess(ChatRoom chatRoom, String userEmail) {
+    if (chatRoom == null) {
+        throw new IllegalArgumentException(&quot;존재하지 않는 채팅방입니다.&quot;);
+    }
+
+    if (!isChatParticipant(chatRoom, userEmail)) {
+        throw new IllegalArgumentException(&quot;해당 채팅방에 접근 권한이 없습니다.&quot;);
+    }
+
+    Product product = productMapper.findById(chatRoom.getProductId(), chatRoom.getSellerEmail());
+    if (product == null) {
+        throw new IllegalArgumentException(&quot;상품 정보를 찾을 수 없습니다.&quot;);
+    }
+
+    if (!product.isVisible() &amp;&amp; userEmail.equals(chatRoom.getRequestEmail())) {
+        ProductRequest productRequest = productRequestMapper.findByProductIdAndRequesterEmail(
+                chatRoom.getProductId(), userEmail);
+
+        if (productRequest == null || !&quot;승인&quot;.equals(productRequest.getApprovalStatus())) {
+            throw new IllegalArgumentException(&quot;모집이 완료된 상품은 승인된 사용자만 채팅이 가능합니다.&quot;);
+        }
+    }
+}</code></pre>
+<h4 id="why-changed-5">Why changed</h4>
+<p>권한 규칙을 단일 메서드로 수렴해 정책 일관성과 유지보수성을 높이기 위해서다.</p>
+<h4 id="risk-impact-5">Risk / Impact</h4>
+<ul>
+<li>이전에 우연히 통과되던 엣지 케이스가 명시적으로 차단될 수 있다.</li>
+<li>예외 메시지 기반 프론트 처리 시 문구 의존이 있다면 확인 필요.</li>
+</ul>
+<hr>
+<h3 id="5-3-모집-완료-비노출-상품-승인자만-채팅-가능-규칙-복원">5-3) 모집 완료(비노출) 상품 승인자만 채팅 가능 규칙 복원</h3>
+<h4 id="problem-6">Problem</h4>
+<p>상품이 모집 완료(<code>!product.isVisible()</code>) 상태일 때 승인되지 않은 요청자 접근이 열려 있으면 비정상 대화 접근이 가능해진다.</p>
+<h4 id="before-code-snippet-6">Before code snippet</h4>
+<pre><span class="lang">java</span><code>// 변경 전 패턴: 모집완료 상태에 대한 승인검증 누락
+if (chatRoom == null || !isParticipant(chatRoom, userEmail)) {
+    throw new IllegalArgumentException(&quot;접근 불가&quot;);
+}</code></pre>
+<h4 id="after-code-snippet-6">After code snippet</h4>
+<pre><span class="lang">java</span><code>// CoreService/src/main/java/com/example/demo/service/ChatMessageService.java
+if (!product.isVisible() &amp;&amp; userEmail.equals(chatRoom.getRequestEmail())) {
+    ProductRequest productRequest = productRequestMapper.findByProductIdAndRequesterEmail(
+            chatRoom.getProductId(), userEmail);
+
+    if (productRequest == null || !&quot;승인&quot;.equals(productRequest.getApprovalStatus())) {
+        throw new IllegalArgumentException(&quot;모집이 완료된 상품은 승인된 사용자만 채팅이 가능합니다.&quot;);
+    }
+}</code></pre>
+<h4 id="why-changed-6">Why changed</h4>
+<p>거래 종료/모집 완료 이후 채팅 접근 권한을 비즈니스 규칙(승인 상태)과 맞추기 위해서다.</p>
+<h4 id="risk-impact-6">Risk / Impact</h4>
+<ul>
+<li>모집 완료 이후 무승인 참여자의 메시지 조회/전송이 실패로 바뀐다(의도된 정책 강화).</li>
+</ul>
+<hr>
+<h3 id="5-4-이미지-업로드-인증-선검증-auth-before-write">5-4) 이미지 업로드 인증 선검증(auth-before-write)</h3>
+<h4 id="problem-7">Problem</h4>
+<p>파일 저장 후 권한을 확인하면, 무권한 요청이 디스크 쓰기를 유발해 저장소 오염 가능성이 있다.</p>
+<h4 id="before-code-snippet-7">Before code snippet</h4>
+<pre><span class="lang">java</span><code>// 변경 전 패턴
+Path imagePath = chatImageDir.resolve(newFilename);
+Files.copy(image.getInputStream(), imagePath, StandardCopyOption.REPLACE_EXISTING);
+
+ChatRoom chatRoom = chatRoomMapper.findChatRoomById(chatroomId, userEmail);
+validateChatRoomAccess(chatRoom, userEmail); // write 이후 검증</code></pre>
+<h4 id="after-code-snippet-7">After code snippet</h4>
+<pre><span class="lang">java</span><code>// CoreService/src/main/java/com/example/demo/service/ChatMessageService.java
+ChatRoom chatRoom = chatRoomMapper.findChatRoomById(chatroomId, userEmail);
+validateChatRoomAccess(chatRoom, userEmail); // write 이전 검증
+
+Path imagePath = chatImageDir.resolve(newFilename);
+Files.copy(image.getInputStream(), imagePath, StandardCopyOption.REPLACE_EXISTING);</code></pre>
+<h4 id="why-changed-7">Why changed</h4>
+<p>인가 실패 요청은 파일시스템에 흔적을 남기지 않도록 하기 위해서다.</p>
+<h4 id="risk-impact-7">Risk / Impact</h4>
+<ul>
+<li>정책상 무권한 업로드는 더 이른 시점에 실패한다.</li>
+<li>저장 실패/검증 실패 경계가 명확해져 로그 해석이 쉬워진다.</li>
+</ul>
+<hr>
+<h2 id="6-webconfig-chat-images-리소스-경로-정렬">6) WebConfig: <code>/chat-images/**</code> 리소스 경로 정렬</h2>
+<h3 id="problem-8">Problem</h3>
+<p>채팅 이미지를 저장하는 실제 경로와 정적 리소스 핸들러 경로가 다르면, 업로드 성공 후 조회 404가 발생한다.</p>
+<h3 id="before-code-snippet-8">Before code snippet</h3>
+<pre><span class="lang">java</span><code>// WebConfig (변경 전 패턴)
+registry.addResourceHandler(&quot;/chat-images/**&quot;)
+        .addResourceLocations(&quot;file:&quot; + System.getProperty(&quot;user.dir&quot;) + &quot;/src/main/resources/static/chat-images/&quot;);</code></pre>
+<h3 id="after-code-snippet-8">After code snippet</h3>
+<pre><span class="lang">java</span><code>// CoreService/src/main/java/com/example/demo/config/WebConfig.java
+registry.addResourceHandler(&quot;/chat-images/**&quot;)
+        .addResourceLocations(&quot;file:&quot; + System.getProperty(&quot;user.dir&quot;) + &quot;/uploads/chat-images/&quot;);</code></pre>
+<h3 id="why-changed-8">Why changed</h3>
+<p><code>ChatMessageService</code>가 실제로 쓰는 경로(<code>user.dir/uploads/chat-images</code>)와 서빙 경로를 맞춰 업로드 즉시 접근 가능하게 하기 위해서다.</p>
+<h3 id="risk-impact-8">Risk / Impact</h3>
+<ul>
+<li>배포 환경의 <code>user.dir</code> 기준이 달라지면 파일 루트가 달라질 수 있다.</li>
+<li>운영 시 워크디렉터리/볼륨 마운트 정책을 함께 고정해야 한다.</li>
+</ul>
+<hr>
+<h2 id="검증-상태-및-한계">검증 상태 및 한계</h2>
+<h3 id="수행한-확인">수행한 확인</h3>
+<ul>
+<li>코드 단위 정합성 확인: 각 변경점이 현재 구현에 반영되어 있는지 수동 점검.</li>
+<li>빌드 검증 시도:</li>
+</ul>
+<pre><span class="lang">bash</span><code>cd CoreService
+bash ./gradlew compileJava --no-daemon</code></pre>
+<h3 id="미해결-검증-한계">미해결 검증 한계</h3>
+<p>현재 실행 환경에는 Gradle toolchain이 요구하는 Java 17이 없어 컴파일 검증이 완료되지 않았다.</p>
+<p>핵심 오류:</p>
+<pre><span class="lang">text</span><code>Cannot find a Java installation ... requirements: {languageVersion=17 ...}
+No locally installed toolchains match and toolchain download repositories have not been configured.</code></pre>
+<p>즉, 문서 시점의 확인 범위는 &quot;정적 코드 확인&quot;까지이며, 실제 컴파일/런타임 검증은 Java 17 toolchain이 준비된 환경에서 추가 수행이 필요하다.</p>
+</main>
+<footer>
+  생성: 마크다운 → HTML 변환 · 원본 <code>BACKEND_HARDENING_BEFORE_AFTER.md</code>
+</footer>
+</body>
+</html>

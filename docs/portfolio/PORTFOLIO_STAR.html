@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HARU 포트폴리오 (STAR)</title>
+<style>
+:root{
+  --bg:#0f1419; --panel:#171d26; --panel2:#1d2530; --line:#2a3340;
+  --txt:#e6edf3; --muted:#9aa7b4; --accent:#4ea1ff; --accent2:#7ee787;
+  --warn:#f2a85f; --danger:#f06f9c;
+  --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  font-size:15px;line-height:1.7;display:flex}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--mono);background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:.86em;color:#cdd9e5}
+pre{background:var(--panel2);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;font-size:.82rem;line-height:1.55;color:#cdd9e5}
+pre .lang{display:block;color:#5b6877;font-size:.68rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+h1,h2,h3,h4{line-height:1.3;margin:0 0 .5em}
+h1{font-size:2rem;margin-bottom:.3em}
+h2{font-size:1.5rem;border-bottom:1px solid var(--line);padding-bottom:.35em;margin-top:2em;scroll-margin-top:20px}
+h3{font-size:1.12rem;color:var(--accent2);margin-top:1.7em}
+h4{font-size:1rem;color:var(--warn);margin-top:1.3em}
+nav.side{position:fixed;top:0;left:0;width:260px;height:100vh;overflow-y:auto;
+  background:var(--panel);border-right:1px solid var(--line);padding:22px 0}
+nav.side .brand{padding:0 22px 6px;font-weight:700;font-size:1.2rem;letter-spacing:.5px}
+nav.side .brand span{color:var(--accent)}
+nav.side .tag{display:block;padding:0 22px 14px;color:var(--muted);font-size:.76rem;line-height:1.45}
+nav.side a{display:block;color:var(--muted);padding:6px 22px;font-size:.85rem;border-left:3px solid transparent}
+nav.side a:hover{color:var(--txt);background:var(--panel2);text-decoration:none}
+nav.side a.lvl3{padding-left:34px;font-size:.8rem}
+nav.side a.lvl4{padding-left:46px;font-size:.76rem;color:#7a8694}
+main{margin-left:260px;padding:46px 54px 120px;max-width:1000px;width:100%}
+.lead{color:var(--muted);font-size:1.02rem;max-width:780px}
+ul{padding-left:1.3em;margin:10px 0}
+li{margin:5px 0;color:#cdd9e5}
+hr{border:none;border-top:1px solid var(--line);margin:40px 0}
+strong{color:#fff;font-weight:600}
+p{margin:12px 0}
+.codepath{display:block;margin:14px 0;padding:10px 14px;background:var(--panel2);
+  border-left:3px solid var(--accent);border-radius:0 8px 8px 0;font-size:.84rem;color:var(--muted)}
+.codepath code{background:#0f1419}
+footer{margin-left:260px;padding:24px 54px;color:#5b6877;font-size:.8rem;border-top:1px solid var(--line)}
+footer a{color:#5b6877;text-decoration:underline}
+@media(max-width:820px){
+  body{display:block}
+  nav.side{position:static;width:100%;height:auto;border-right:none;border-bottom:1px solid var(--line)}
+  main,footer{margin-left:0;padding:28px 20px 80px}
+}
+</style>
+</head>
+<body>
+<nav class="side">
+  <div class="brand"><span>Haru</span> Docs</div>
+  <span class="tag">HARU 포트폴리오 (STAR)</span>
+  <a href="#1-회원가입">1) 회원가입</a>
+  <a href="#situation" class="lvl3">Situation</a>
+  <a href="#task" class="lvl3">Task</a>
+  <a href="#action" class="lvl3">Action</a>
+  <a href="#result" class="lvl3">Result</a>
+  <a href="#2-로그인">2) 로그인</a>
+  <a href="#situation-1" class="lvl3">Situation</a>
+  <a href="#task-1" class="lvl3">Task</a>
+  <a href="#action-1" class="lvl3">Action</a>
+  <a href="#result-1" class="lvl3">Result</a>
+  <a href="#3-취미">3) 취미</a>
+  <a href="#situation-2" class="lvl3">Situation</a>
+  <a href="#task-2" class="lvl3">Task</a>
+  <a href="#action-2" class="lvl3">Action</a>
+  <a href="#result-2" class="lvl3">Result</a>
+  <a href="#4-게시판">4) 게시판</a>
+  <a href="#situation-3" class="lvl3">Situation</a>
+  <a href="#task-3" class="lvl3">Task</a>
+  <a href="#action-3" class="lvl3">Action</a>
+  <a href="#result-3" class="lvl3">Result</a>
+  <a href="#5-채팅">5) 채팅</a>
+  <a href="#situation-4" class="lvl3">Situation</a>
+  <a href="#task-4" class="lvl3">Task</a>
+  <a href="#action-4" class="lvl3">Action</a>
+  <a href="#result-4" class="lvl3">Result</a>
+</nav>
+<main>
+<h1>HARU 포트폴리오 (STAR)</h1>
+<p>주니어 개발자 면접에서 제가 직접 구현한 기능을 STAR(Situation, Task, Action, Result) 형식으로 설명하기 위한 문서입니다.</p>
+<h2 id="1-회원가입">1) 회원가입</h2>
+<h3 id="situation">Situation</h3>
+<p>취미 기반 서비스에서 회원가입 단계의 데이터가 틀어지면, 이후 추천과 사용자 분류 정확도에 바로 영향을 줬습니다. 특히 취미와 카테고리 매핑이 잘못 저장되는 문제가 가장 우려됐습니다.</p>
+<h3 id="task">Task</h3>
+<p>중복 계정 생성을 막고, 취미-카테고리 관계가 맞는 데이터만 저장되도록 회원가입 검증 흐름을 백엔드와 프론트에서 끊김 없이 연결하는 것이 목표였습니다.</p>
+<h3 id="action">Action</h3>
+<p><code>AuthService.registerUser</code>에서 이메일/닉네임/전화번호 중복을 먼저 확인했습니다. 이후 요청으로 들어온 취미 목록을 순회하며 필수값 누락을 점검하고, <code>HobbyService</code>의 검증 메서드로 카테고리 존재 여부, 취미 존재 여부, 카테고리-취미 관계를 단계적으로 검사했습니다. 검증 통과 시에만 비밀번호 해싱 후 사용자와 취미를 저장하도록 처리했고, 프론트 <code>Signup.tsx</code>와 <code>signupApi</code>를 연결해 실패 사유가 화면에 전달되도록 맞췄습니다.</p>
+<h3 id="result">Result</h3>
+<p>회원가입 시점에서 잘못된 취미 조합을 조기에 차단해 데이터 일관성을 지켰고, 실패 원인이 명확하게 전달되어 사용자 안내와 개발 중 디버깅이 모두 수월해졌습니다.</p>
+<p class="codepath">코드 참고: <code>CoreService/src/main/java/com/example/demo/service/AuthService.java</code>, <code>CoreService/src/main/java/com/example/demo/service/HobbyService.java</code>, <code>vite-react-teamsketch/src/pages/account/Signup.tsx</code>, <code>vite-react-teamsketch/src/services/api/authAPI.ts</code></p>
+<h2 id="2-로그인">2) 로그인</h2>
+<h3 id="situation-1">Situation</h3>
+<p>초기 로그인은 성공 케이스 중심으로만 보였고, 실패 누적이나 계정 잠금 같은 운영 관점의 방어 로직이 부족했습니다.</p>
+<h3 id="task-1">Task</h3>
+<p>로그인 성공/실패/잠금 흐름을 명확히 분리하고, 반복 실패에 대응할 수 있는 정책을 서비스 로직으로 구현하는 것이 필요했습니다.</p>
+<h3 id="action-1">Action</h3>
+<p><code>AuthService.login</code>에서 계정 상태와 잠금 여부를 먼저 검사하도록 순서를 정리했습니다. 비밀번호가 틀리면 실패 횟수를 누적하고 기준 횟수 이상이면 잠금 상태로 전환되게 했습니다. 로그인 성공 시에는 실패 횟수를 초기화하고 JWT를 발급하도록 구성했습니다. 로그아웃은 토큰 블랙리스트 방식으로 무효화했고, 프론트 <code>Login.tsx</code>와 <code>loginApi</code>에서 응답 상태를 화면 처리와 연결했습니다.</p>
+<h3 id="result-1">Result</h3>
+<p>무차별 로그인 시도에 대한 기본 방어선을 확보했고, 인증 흐름이 상태별로 분리되어 장애 대응과 원인 파악이 쉬워졌습니다.</p>
+<p class="codepath">코드 참고: <code>CoreService/src/main/java/com/example/demo/service/AuthService.java</code>, <code>CoreService/src/main/java/com/example/demo/controller/AuthController.java</code>, <code>vite-react-teamsketch/src/pages/account/Login.tsx</code>, <code>vite-react-teamsketch/src/services/api/authAPI.ts</code></p>
+<h2 id="3-취미">3) 취미</h2>
+<h3 id="situation-2">Situation</h3>
+<p>사용자 취향은 가입 이후에도 자주 바뀌기 때문에, 조회만 가능한 구조로는 실제 사용성을 만족시키기 어려웠습니다.</p>
+<h3 id="task-2">Task</h3>
+<p>취미/카테고리 조회 API와 사용자 취미 수정 API를 분리해 제공하고, 수정 이후 조회 결과가 일관되게 보장되도록 만드는 것이 과제였습니다.</p>
+<h3 id="action-2">Action</h3>
+<p><code>HobbyController</code>에 전체 취미, 카테고리, 카테고리별 취미, 사용자 취미 조회/수정 엔드포인트를 구성했습니다. <code>HobbyService.registerUserHobbies</code>에서는 기존 사용자 취미를 정리한 뒤 새 요청 목록을 다시 등록하는 방식으로 갱신 로직을 단순화했습니다. 개별 등록 단계에서 카테고리-취미 관계를 다시 검증해 잘못된 조합 저장을 막았습니다.</p>
+<h3 id="result-2">Result</h3>
+<p>취미 수정 후 조회 결과가 최종 상태와 맞게 유지되어 데이터 동기화가 안정됐고, 프론트에서 상태 관리할 때 예외 케이스가 줄었습니다.</p>
+<p class="codepath">코드 참고: <code>CoreService/src/main/java/com/example/demo/controller/HobbyController.java</code>, <code>CoreService/src/main/java/com/example/demo/service/HobbyService.java</code>, <code>CoreService/src/main/resources/mapper/HobbyMapper.xml</code></p>
+<h2 id="4-게시판">4) 게시판</h2>
+<h3 id="situation-3">Situation</h3>
+<p>게시판은 여러 사용자가 함께 쓰기 때문에 권한 검증이 약하면 비멤버 접근, 비작성자 수정/삭제 같은 문제가 쉽게 발생할 수 있었습니다.</p>
+<h3 id="task-3">Task</h3>
+<p>게시판/게시글 CRUD 전 과정에서 멤버십과 역할(호스트/활성 멤버/작성자/관리자)에 따른 접근 제어를 서비스 계층에 일관되게 반영해야 했습니다.</p>
+<h3 id="action-3">Action</h3>
+<p><code>PostService.createPost</code>에서 게시판 존재를 확인한 뒤, 호스트가 아닌 경우 활성 멤버 여부를 검사했습니다. <code>updatePost</code>는 작성자만 수정 가능하도록 제한했고, <code>deletePost</code>는 작성자 또는 호스트/관리자만 허용했습니다. <code>getPostById</code>는 조회 권한을 멤버 조건으로 제한하면서 상세 조회 시 조회수 증가와 첨부 이미지 조회를 함께 처리했습니다.</p>
+<h3 id="result-3">Result</h3>
+<p>게시판 기능이 단순 CRUD를 넘어 권한 정책 중심으로 동작하게 되었고, 권한 관련 예외가 서비스 레이어에서 일관되게 통제됐습니다.</p>
+<p class="codepath">코드 참고: <code>CoreService/src/main/java/com/example/demo/service/PostService.java</code>, <code>CoreService/src/main/java/com/example/demo/controller/board/PostController.java</code>, <code>CoreService/src/main/java/com/example/demo/controller/BoardController.java</code></p>
+<h2 id="5-채팅">5) 채팅</h2>
+<h3 id="situation-4">Situation</h3>
+<p>채팅은 메시지 전송뿐 아니라, 재접속 시 히스토리 확인과 읽음 처리, 참여자 권한 검증이 동시에 맞물리는 기능이라 누락 시 오류가 자주 발생할 수 있었습니다.</p>
+<h3 id="task-4">Task</h3>
+<p>WebSocket과 REST 역할을 분리해 안정적으로 운영 가능한 구조를 만들고, 채팅방 접근을 도메인 규칙(참여자/승인 상태)으로 강제하는 것이 목표였습니다.</p>
+<h3 id="action-4">Action</h3>
+<p><code>ChatService.createOrGetChatRoom</code>에서 모집 완료 상태에서는 승인된 요청자만 채팅방에 접근 가능하도록 검증했습니다. <code>getChatRoomDetail</code>에서는 판매자/요청자 참여자 검증 후 읽음 상태를 업데이트하도록 처리했습니다. <code>WebSocketConfig</code>에서 STOMP <code>CONNECT</code> 시 JWT를 검증해 <code>Principal</code>을 주입했고, 프론트 <code>ChatRoom.tsx</code>, <code>ChatList.tsx</code>, <code>userChatAPI.ts</code>, <code>useChat.ts</code>를 통해 실시간 수신과 목록/상세 조회를 연결했습니다.</p>
+<h3 id="result-4">Result</h3>
+<p>실시간 송수신과 조회/권한 처리의 책임이 분리되어 유지보수가 쉬워졌고, 승인되지 않은 사용자 접근을 백엔드에서 다시 차단할 수 있게 됐습니다.</p>
+<p class="codepath">코드 참고: <code>CoreService/src/main/java/com/example/demo/service/ChatService.java</code>, <code>CoreService/src/main/java/com/example/demo/controller/ChatController.java</code>, <code>CoreService/src/main/java/com/example/demo/controller/ChatMessageController.java</code>, <code>CoreService/src/main/java/com/example/demo/config/WebSocketConfig.java</code>, <code>vite-react-teamsketch/src/pages/chatroom/ChatRoom.tsx</code>, <code>vite-react-teamsketch/src/pages/chatroom/ChatList.tsx</code>, <code>vite-react-teamsketch/src/services/api/userChatAPI.ts</code>, <code>vite-react-teamsketch/src/services/real-time/useChat.ts</code></p>
+</main>
+<footer>
+  생성: 마크다운 → HTML 변환 · 원본 <code>PORTFOLIO_STAR.md</code>
+</footer>
+</body>
+</html>

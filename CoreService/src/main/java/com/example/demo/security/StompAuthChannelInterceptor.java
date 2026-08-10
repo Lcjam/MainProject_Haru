@@ -21,7 +21,6 @@ import java.util.List;
  * WebSocket 경로의 인증 방어선은 이 클래스가 유일하다.
  *
  * <p>WebSocketConfig 의 익명 ChannelInterceptor 에서 추출했다(익명 클래스는 단위 테스트 불가).
- * 이 커밋은 순수 이동이며 동작은 이전과 동일하다.
  */
 @Component
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
@@ -40,36 +39,42 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
-        if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-            // 연결 시 토큰 검증
+        if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
             List<String> authorization = accessor.getNativeHeader("Authorization");
-            if (authorization != null && !authorization.isEmpty()) {
-                String token = tokenUtils.extractTokenWithoutBearer(authorization.get(0));
+            if (authorization == null || authorization.isEmpty()) {
+                log.warn("WebSocket 연결 거부: Authorization 헤더 없음");
+                return null; // 연결 거부
+            }
 
-                try {
-                    // 토큰 검증 및 이메일 추출
-                    if (jwtTokenProvider.validateToken(token)) {
-                        String email = jwtTokenProvider.getUsername(token);
+            String token = tokenUtils.extractTokenWithoutBearer(authorization.get(0));
 
-                        // Principal 설정 (이후 메시지 처리에서 사용됨)
-                        accessor.setUser(new Principal() {
-                            @Override
-                            public String getName() {
-                                return email;
-                            }
-                        });
-
-                        log.info("WebSocket 연결 인증 성공: email={}", email);
-                    }
-                } catch (Exception e) {
-                    log.error("WebSocket 연결 인증 실패: {}", e.getMessage());
+            try {
+                // validateToken() 은 위조/만료 토큰에 예외가 아니라 false 를 돌려준다.
+                // false 를 흘려보내면 인증 없이 연결이 수락되므로 여기서 반드시 끊는다(S1).
+                if (!jwtTokenProvider.validateToken(token)) {
+                    log.warn("WebSocket 연결 거부: 토큰 검증 실패");
                     return null; // 연결 거부
                 }
-            } else {
-                log.error("WebSocket 연결 인증 헤더 없음");
+
+                String email = jwtTokenProvider.getUsername(token);
+
+                // Principal 설정 (이후 메시지 처리에서 사용됨)
+                accessor.setUser(new StompPrincipal(email));
+
+                log.info("WebSocket 연결 인증 성공: email={}", email);
+            } catch (Exception e) {
+                log.warn("WebSocket 연결 거부: 인증 처리 중 오류 - {}", e.getMessage());
                 return null; // 연결 거부
             }
         }
         return message;
+    }
+
+    /** STOMP 세션에 붙는 사용자 식별자. 이메일을 이름으로 쓴다. */
+    private record StompPrincipal(String name) implements Principal {
+        @Override
+        public String getName() {
+            return name;
+        }
     }
 }

@@ -151,7 +151,9 @@ public class ChatController {
             // 요청 승인 처리 (승인 상태 변경 → 모집 인원 증가 → 모집 마감 노출 갱신)
             chatService.approveChatRequest(requestId, productId);
 
-            // 알림 추가
+            // 알림 추가 — approveChatRequest 의 @Transactional 경계 밖(커밋 이후)에서 발행한다.
+            // 트랜잭션 안으로 옮기지 말 것: Phase 4 에서 F1a(Redis 발행 예외가 catch 에 삼켜지는 문제)가
+            // 고쳐지면 이 호출이 실제로 예외를 던지게 되고, 그때 Redis 장애가 이미 끝난 승인 쓰기를 롤백시킨다.
             String message = String.format("\"%s\" 상품에 대한 함께하기 요청이 승인되었습니다!", productId);
             notificationService.sendNotification(requesterEmail, message, "CHAT_MESSAGE", chatroomId, productId);
             

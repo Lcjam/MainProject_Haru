@@ -12,8 +12,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -69,5 +72,22 @@ class ChatServiceTest {
         verify(productMapper).updateRequestApprovalStatus(99L, "승인");
         verify(productMapper).increaseCurrentParticipants(5L);
         verify(productMapper).updateProductVisibility(5L);
+    }
+
+    /**
+     * 단위 1a-4 — 중간 실패 시 후속 쓰기가 일어나지 않음을 고정한다.
+     * 주의: 이 테스트는 "후속 매퍼 호출이 없다"까지만 보장한다. 앞선 쓰기가 실제로 롤백되는지는
+     * DB 를 태워야 알 수 있고, 그 레인은 Phase 2 소관이다. @Transactional 이 붙어 있다는 사실만으로
+     * 롤백을 검증했다고 주장하지 말 것.
+     */
+    @Test
+    @DisplayName("approveChatRequest: 참가자 수 증가에서 실패하면 노출 갱신은 호출되지 않는다")
+    void approveChatRequest_middleFailure_skipsSubsequentWrites() {
+        willThrow(new RuntimeException("DB 오류")).given(productMapper).increaseCurrentParticipants(5L);
+
+        assertThrows(RuntimeException.class, () -> chatService.approveChatRequest(99L, 5L));
+
+        verify(productMapper).updateRequestApprovalStatus(99L, "승인");
+        verify(productMapper, never()).updateProductVisibility(5L);
     }
 }

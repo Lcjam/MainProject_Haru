@@ -270,6 +270,37 @@ public class ChatService {
     }
 
     /**
+     * 채팅방 ID로 채팅방 조회 (ChatController.approveChatMember 의 404/403 판단용 — 판단은 컨트롤러에 남긴다)
+     */
+    public ChatRoom findChatRoomById(Integer chatroomId, String email) {
+        return chatRoomMapper.findChatRoomById(chatroomId, email);
+    }
+
+    /**
+     * 상품 ID와 사용자 이메일로 채팅방 조회 (ChatController.getChatRoomIdByProductId 용)
+     */
+    public ChatRoom findChatRoomByProductIdAndEmail(Long productId, String email) {
+        return chatRoomMapper.findChatRoomByProductIdAndEmail(productId, email);
+    }
+
+    /**
+     * 상품 ID와 요청자 이메일로 함께하기 요청 ID 조회 (ChatController.approveChatMember 의 404 판단용)
+     */
+    public Long findRequestId(Long productId, String requesterEmail) {
+        return productRequestMapper.findRequestId(productId, requesterEmail);
+    }
+
+    /**
+     * 함께하기 요청 승인 처리 (승인 상태 변경 → 모집 인원 증가 → 모집 마감 노출 갱신, 3단계 쓰기)
+     * 승인 여부/알림 발송은 호출부(ChatController)의 책임으로 남긴다.
+     */
+    public void approveChatRequest(Long requestId, Long productId) {
+        productMapper.updateRequestApprovalStatus(requestId, "승인");
+        productMapper.increaseCurrentParticipants(productId);
+        productMapper.updateProductVisibility(productId);
+    }
+
+    /**
      * 모집 중이거나 승인된 채팅방 목록 조회
      * 상품 등록자는 모든 채팅방을, 신청자는 모집중이거나 승인된 채팅방만 볼 수 있음
      */

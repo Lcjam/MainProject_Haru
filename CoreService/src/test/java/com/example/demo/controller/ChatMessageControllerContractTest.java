@@ -2,8 +2,6 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.chat.ChatMessagesResponse;
 import com.example.demo.exception.GlobalExceptionHandler;
-import com.example.demo.mapper.ChatRoomMapper;
-import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.chat.ChatMessage;
 import com.example.demo.service.ChatMessageService;
 import com.example.demo.service.NotificationService;
@@ -42,15 +40,13 @@ class ChatMessageControllerContractTest {
     private final TokenUtils tokenUtils = mock(TokenUtils.class);
     private final SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
     private final NotificationService notificationService = mock(NotificationService.class);
-    private final ChatRoomMapper chatRoomMapper = mock(ChatRoomMapper.class);
-    private final UserMapper userMapper = mock(UserMapper.class);
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new ChatMessageController(chatMessageService, tokenUtils, messagingTemplate,
-                        notificationService, chatRoomMapper, userMapper))
+                        notificationService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

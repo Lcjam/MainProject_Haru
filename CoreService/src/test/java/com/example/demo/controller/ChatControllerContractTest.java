@@ -3,9 +3,6 @@ package com.example.demo.controller;
 import com.example.demo.dto.chat.ChatRoomRequest;
 import com.example.demo.dto.chat.ChatRoomResponse;
 import com.example.demo.exception.GlobalExceptionHandler;
-import com.example.demo.mapper.ChatRoomMapper;
-import com.example.demo.mapper.Market.ProductMapper;
-import com.example.demo.mapper.Market.ProductRequestMapper;
 import com.example.demo.model.chat.ChatRoom;
 import com.example.demo.service.ChatService;
 import com.example.demo.service.NotificationService;
@@ -37,17 +34,13 @@ class ChatControllerContractTest {
 
     private final ChatService chatService = mock(ChatService.class);
     private final TokenUtils tokenUtils = mock(TokenUtils.class);
-    private final ChatRoomMapper chatRoomMapper = mock(ChatRoomMapper.class);
-    private final ProductMapper productMapper = mock(ProductMapper.class);
-    private final ProductRequestMapper productRequestMapper = mock(ProductRequestMapper.class);
     private final NotificationService notificationService = mock(NotificationService.class);
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new ChatController(chatService, tokenUtils, chatRoomMapper,
-                        productMapper, productRequestMapper, notificationService))
+                .standaloneSetup(new ChatController(chatService, tokenUtils, notificationService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -211,7 +204,7 @@ class ChatControllerContractTest {
     @DisplayName("approveChatMember: 채팅방이 없으면 404")
     void approveChatMember_chatRoomNotFound_returns404() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("seller@haru.com");
-        given(chatRoomMapper.findChatRoomById(1, "seller@haru.com")).willReturn(null);
+        given(chatService.findChatRoomById(1, "seller@haru.com")).willReturn(null);
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isNotFound())
@@ -225,7 +218,7 @@ class ChatControllerContractTest {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("buyer@haru.com");
         ChatRoom chatRoom = ChatRoom.builder().chatroomId(1).sellerEmail("seller@haru.com")
                 .productId(5L).requestEmail("buyer@haru.com").build();
-        given(chatRoomMapper.findChatRoomById(1, "buyer@haru.com")).willReturn(chatRoom);
+        given(chatService.findChatRoomById(1, "buyer@haru.com")).willReturn(chatRoom);
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isForbidden())
@@ -239,8 +232,8 @@ class ChatControllerContractTest {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("seller@haru.com");
         ChatRoom chatRoom = ChatRoom.builder().chatroomId(1).sellerEmail("seller@haru.com")
                 .productId(5L).requestEmail("buyer@haru.com").build();
-        given(chatRoomMapper.findChatRoomById(1, "seller@haru.com")).willReturn(chatRoom);
-        given(productRequestMapper.findRequestId(5L, "buyer@haru.com")).willReturn(null);
+        given(chatService.findChatRoomById(1, "seller@haru.com")).willReturn(chatRoom);
+        given(chatService.findRequestId(5L, "buyer@haru.com")).willReturn(null);
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isNotFound())
@@ -254,8 +247,8 @@ class ChatControllerContractTest {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("seller@haru.com");
         ChatRoom chatRoom = ChatRoom.builder().chatroomId(1).sellerEmail("seller@haru.com")
                 .productId(5L).requestEmail("buyer@haru.com").build();
-        given(chatRoomMapper.findChatRoomById(1, "seller@haru.com")).willReturn(chatRoom);
-        given(productRequestMapper.findRequestId(5L, "buyer@haru.com")).willReturn(99L);
+        given(chatService.findChatRoomById(1, "seller@haru.com")).willReturn(chatRoom);
+        given(chatService.findRequestId(5L, "buyer@haru.com")).willReturn(99L);
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isOk())
@@ -268,7 +261,7 @@ class ChatControllerContractTest {
     @DisplayName("approveChatMember: 예외 발생 시 500 + 고정 메시지")
     void approveChatMember_exception_returns500() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("seller@haru.com");
-        given(chatRoomMapper.findChatRoomById(1, "seller@haru.com"))
+        given(chatService.findChatRoomById(1, "seller@haru.com"))
                 .willThrow(new RuntimeException("DB 오류"));
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
@@ -293,7 +286,7 @@ class ChatControllerContractTest {
     @DisplayName("getChatRoomIdByProductId: 채팅방을 찾지 못하면 404")
     void getChatRoomIdByProductId_notFound_returns404() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("user@haru.com");
-        given(chatRoomMapper.findChatRoomByProductIdAndEmail(1L, "user@haru.com")).willReturn(null);
+        given(chatService.findChatRoomByProductIdAndEmail(1L, "user@haru.com")).willReturn(null);
 
         mockMvc.perform(get("/api/core/chat/rooms/product/{productId}", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isNotFound())
@@ -306,7 +299,7 @@ class ChatControllerContractTest {
     void getChatRoomIdByProductId_success() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("user@haru.com");
         ChatRoom chatRoom = ChatRoom.builder().chatroomId(7).build();
-        given(chatRoomMapper.findChatRoomByProductIdAndEmail(1L, "user@haru.com")).willReturn(chatRoom);
+        given(chatService.findChatRoomByProductIdAndEmail(1L, "user@haru.com")).willReturn(chatRoom);
 
         mockMvc.perform(get("/api/core/chat/rooms/product/{productId}", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isOk())
@@ -318,7 +311,7 @@ class ChatControllerContractTest {
     @DisplayName("getChatRoomIdByProductId: 예외 발생 시 500 + 고정 메시지")
     void getChatRoomIdByProductId_exception_returns500() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("user@haru.com");
-        given(chatRoomMapper.findChatRoomByProductIdAndEmail(anyLong(), anyString()))
+        given(chatService.findChatRoomByProductIdAndEmail(anyLong(), anyString()))
                 .willThrow(new RuntimeException("DB 오류"));
 
         mockMvc.perform(get("/api/core/chat/rooms/product/{productId}", 1).header("Authorization", "Bearer ok"))

@@ -194,6 +194,107 @@ public class PostReactionService {
     }
 
     /**
+     * 게시글의 특정 사용자 반응 조회 (PostReactionController.deleteReaction 의 404 판단용 — 판단은 컨트롤러에 남긴다)
+     * PostReactionController.addReaction / deleteReaction 이 직접 쓰던 PostReactionMapper.getUserReaction 을 그대로 옮긴 통과 메서드다.
+     */
+    public PostReaction getUserReaction(Long postId, String userEmail) {
+        return postReactionMapper.getUserReaction(postId, userEmail);
+    }
+
+    /**
+     * PostReactionController.addReaction(POST /posts/{postId}/reactions) 의 반응 추가/변경 + like_count 동기화.
+     * 주의: reactToPost(:37) 와 이름은 비슷하지만 별개 메서드다 — reactToPost 는 호출부 0의 죽은 코드이고
+     * 게시판 멤버십 검증까지 포함하지만, 컨트롤러의 현행 동작은 멤버십 검증이 없다. "순수 이동" 원칙에 따라
+     * reactToPost 를 재사용하지 않고 컨트롤러의 현행 로직을 그대로 옮겼다.
+     */
+    public Map<String, Integer> applyReaction(Long postId, String userEmail, String reactionType) {
+        // 현재 사용자의 반응 확인
+        PostReaction existingReaction = postReactionMapper.getUserReaction(postId, userEmail);
+
+        // 반응 타입이 'LIKE'인 경우 like_count 처리
+        boolean isLikeReaction = "LIKE".equals(reactionType);
+        boolean isLikeExisting = existingReaction != null && "LIKE".equals(existingReaction.getReactionType());
+
+        if (existingReaction == null) {
+            // 새 반응 추가
+            postReactionMapper.insertReaction(postId, userEmail, reactionType);
+
+            // LIKE 타입이면 like_count 증가
+            if (isLikeReaction) {
+                postMapper.incrementLikeCount(postId);
+            }
+        } else {
+            // 기존 반응 수정 (타입이 다른 경우)
+            if (!reactionType.equals(existingReaction.getReactionType())) {
+                postReactionMapper.updateReactionType(postId, userEmail, reactionType);
+
+                // like_count 처리 (이전 반응과 현재 반응의 LIKE 상태에 따라)
+                if (isLikeExisting && !isLikeReaction) {
+                    // LIKE -> 다른 타입으로 변경: like_count 감소
+                    postMapper.decrementLikeCount(postId);
+                } else if (!isLikeExisting && isLikeReaction) {
+                    // 다른 타입 -> LIKE로 변경: like_count 증가
+                    postMapper.incrementLikeCount(postId);
+                }
+            }
+        }
+
+        // 게시글의 현재 반응 통계 조회
+        return postReactionMapper.getReactionStatistics(postId);
+    }
+
+    /**
+     * PostReactionController.deleteReaction(DELETE /posts/{postId}/reactions) 의 반응 삭제 + like_count 동기화.
+     * 삭제할 반응이 있는지(404 판단)는 컨트롤러가 getUserReaction 으로 먼저 확인하고, 그 결과의 reactionType 을
+     * 여기로 전달한다. removeReaction(:108) 은 호출부 0의 죽은 코드라 재사용하지 않고 컨트롤러의 현행 로직을
+     * 그대로 옮겼다.
+     */
+    public Map<String, Integer> deleteReactionAndSync(Long postId, String userEmail, String currentReactionType) {
+        // 'LIKE' 반응이면 like_count 감소
+        if ("LIKE".equals(currentReactionType)) {
+            postMapper.decrementLikeCount(postId);
+        }
+
+        // 반응 삭제
+        postReactionMapper.deleteReaction(postId, userEmail);
+
+        // 게시글의 현재 반응 통계 조회
+        return postReactionMapper.getReactionStatistics(postId);
+    }
+
+    /**
+     * PostReactionController.toggleLike(POST /{postId}/like) 의 좋아요 토글 + like_count 동기화.
+     * 응답 맵의 키(liked/message/likeCount)는 컨트롤러의 현행 응답 구성과 동일하게 유지한다.
+     */
+    public Map<String, Object> togglePostLike(Long postId, String userEmail) {
+        // 이미 좋아요를 눌렀는지 확인
+        boolean alreadyLiked = postReactionMapper.hasUserReacted(postId, userEmail);
+        Map<String, Object> response = new HashMap<>();
+
+        if (alreadyLiked) {
+            // 좋아요 취소: 반응 삭제 및 카운트 감소
+            postReactionMapper.deleteReaction(postId, userEmail);
+            postMapper.decrementLikeCount(postId);
+
+            response.put("liked", false);
+            response.put("message", "좋아요가 취소되었습니다.");
+        } else {
+            // 좋아요 추가: 반응 추가 및 카운트 증가
+            postReactionMapper.insertReaction(postId, userEmail, "LIKE");
+            postMapper.incrementLikeCount(postId);
+
+            response.put("liked", true);
+            response.put("message", "좋아요가 추가되었습니다.");
+        }
+
+        // 업데이트된 좋아요 수를 응답에 포함
+        Integer likeCount = postMapper.getPostById(postId).getLikeCount();
+        response.put("likeCount", likeCount);
+
+        return response;
+    }
+
+    /**
      * 반응 응답 구성 메서드
      */
     private PostReactionResponse buildReactionResponse(Long postId, String userEmail, String reactionType, boolean isReacted) {

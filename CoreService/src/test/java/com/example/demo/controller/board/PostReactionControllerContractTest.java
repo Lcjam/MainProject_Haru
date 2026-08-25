@@ -2,9 +2,6 @@ package com.example.demo.controller.board;
 
 import com.example.demo.dto.board.PostReactionResponse;
 import com.example.demo.exception.GlobalExceptionHandler;
-import com.example.demo.mapper.board.PostMapper;
-import com.example.demo.mapper.board.PostReactionMapper;
-import com.example.demo.model.board.Post;
 import com.example.demo.model.board.PostReaction;
 import com.example.demo.service.PostReactionService;
 import com.example.demo.util.TokenUtils;
@@ -15,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -42,15 +40,12 @@ class PostReactionControllerContractTest {
 
     private final PostReactionService postReactionService = mock(PostReactionService.class);
     private final TokenUtils tokenUtils = mock(TokenUtils.class);
-    private final PostReactionMapper postReactionMapper = mock(PostReactionMapper.class);
-    private final PostMapper postMapper = mock(PostMapper.class);
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new PostReactionController(postReactionService, tokenUtils,
-                        postReactionMapper, postMapper))
+                .standaloneSetup(new PostReactionController(postReactionService, tokenUtils))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -89,8 +84,7 @@ class PostReactionControllerContractTest {
     @DisplayName("addReaction: 새 반응 추가는 200 + success")
     void addReaction_success() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("user@haru.com");
-        given(postReactionMapper.getUserReaction(1L, "user@haru.com")).willReturn(null);
-        given(postReactionMapper.getReactionStatistics(1L)).willReturn(Map.of("LIKE", 1));
+        given(postReactionService.applyReaction(1L, "user@haru.com", "LIKE")).willReturn(Map.of("LIKE", 1));
 
         mockMvc.perform(post("/api/core/boards/posts/{postId}/reactions", 1)
                         .header("Authorization", "Bearer ok")
@@ -106,7 +100,7 @@ class PostReactionControllerContractTest {
     @DisplayName("addReaction: 예외 발생 시 500(본문 문자열은 단언하지 않음)")
     void addReaction_exception_returns500() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("user@haru.com");
-        given(postReactionMapper.getUserReaction(anyLong(), anyString()))
+        given(postReactionService.applyReaction(anyLong(), anyString(), anyString()))
                 .willThrow(new RuntimeException("DB 오류"));
 
         mockMvc.perform(post("/api/core/boards/posts/{postId}/reactions", 1)
@@ -134,7 +128,7 @@ class PostReactionControllerContractTest {
     @DisplayName("deleteReaction: 삭제할 반응이 없으면 404")
     void deleteReaction_notFound_returns404() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("user@haru.com");
-        given(postReactionMapper.getUserReaction(1L, "user@haru.com")).willReturn(null);
+        given(postReactionService.getUserReaction(1L, "user@haru.com")).willReturn(null);
 
         mockMvc.perform(delete("/api/core/boards/posts/{postId}/reactions", 1)
                         .header("Authorization", "Bearer ok"))
@@ -149,8 +143,8 @@ class PostReactionControllerContractTest {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("user@haru.com");
         PostReaction reaction = PostReaction.builder().postId(1L).userEmail("user@haru.com")
                 .reactionType("LIKE").build();
-        given(postReactionMapper.getUserReaction(1L, "user@haru.com")).willReturn(reaction);
-        given(postReactionMapper.getReactionStatistics(1L)).willReturn(Map.of());
+        given(postReactionService.getUserReaction(1L, "user@haru.com")).willReturn(reaction);
+        given(postReactionService.deleteReactionAndSync(1L, "user@haru.com", "LIKE")).willReturn(Map.of());
 
         mockMvc.perform(delete("/api/core/boards/posts/{postId}/reactions", 1)
                         .header("Authorization", "Bearer ok"))
@@ -164,7 +158,7 @@ class PostReactionControllerContractTest {
     @DisplayName("deleteReaction: 예외 발생 시 500(본문 문자열은 단언하지 않음)")
     void deleteReaction_exception_returns500() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("user@haru.com");
-        given(postReactionMapper.getUserReaction(anyLong(), anyString()))
+        given(postReactionService.getUserReaction(anyLong(), anyString()))
                 .willThrow(new RuntimeException("DB 오류"));
 
         mockMvc.perform(delete("/api/core/boards/posts/{postId}/reactions", 1)
@@ -299,10 +293,11 @@ class PostReactionControllerContractTest {
     @DisplayName("toggleLike: 미반응 상태에서 호출하면 좋아요 추가 + 200")
     void toggleLike_addsLike_returns200() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("user@haru.com");
-        given(postReactionMapper.hasUserReacted(1L, "user@haru.com")).willReturn(false);
-        Post post = new Post();
-        post.setLikeCount(5);
-        given(postMapper.getPostById(1L)).willReturn(post);
+        Map<String, Object> serviceResult = new HashMap<>();
+        serviceResult.put("liked", true);
+        serviceResult.put("message", "좋아요가 추가되었습니다.");
+        serviceResult.put("likeCount", 5);
+        given(postReactionService.togglePostLike(1L, "user@haru.com")).willReturn(serviceResult);
 
         mockMvc.perform(post("/api/core/boards/{postId}/like", 1)
                         .header("Authorization", "Bearer ok"))
@@ -317,10 +312,11 @@ class PostReactionControllerContractTest {
     @DisplayName("toggleLike: 이미 반응한 상태에서 호출하면 좋아요 취소 + 200")
     void toggleLike_removesLike_returns200() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("user@haru.com");
-        given(postReactionMapper.hasUserReacted(1L, "user@haru.com")).willReturn(true);
-        Post post = new Post();
-        post.setLikeCount(4);
-        given(postMapper.getPostById(1L)).willReturn(post);
+        Map<String, Object> serviceResult = new HashMap<>();
+        serviceResult.put("liked", false);
+        serviceResult.put("message", "좋아요가 취소되었습니다.");
+        serviceResult.put("likeCount", 4);
+        given(postReactionService.togglePostLike(1L, "user@haru.com")).willReturn(serviceResult);
 
         mockMvc.perform(post("/api/core/boards/{postId}/like", 1)
                         .header("Authorization", "Bearer ok"))
@@ -333,7 +329,7 @@ class PostReactionControllerContractTest {
     @DisplayName("toggleLike: 예외 발생 시 500(본문 문자열은 단언하지 않음 — addReaction/deleteReaction과 동일 패턴)")
     void toggleLike_exception_returns500() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("user@haru.com");
-        given(postReactionMapper.hasUserReacted(anyLong(), anyString()))
+        given(postReactionService.togglePostLike(anyLong(), anyString()))
                 .willThrow(new RuntimeException("DB 오류"));
 
         mockMvc.perform(post("/api/core/boards/{postId}/like", 1)

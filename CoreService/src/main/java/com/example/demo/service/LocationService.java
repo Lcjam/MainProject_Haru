@@ -1,7 +1,9 @@
 package com.example.demo.service;
 
 import com.example.demo.mapper.LocationMapper;
+import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.Location;
+import com.example.demo.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import java.util.List;
 public class LocationService {
 
     private final LocationMapper locationMapper;
+    private final UserMapper userMapper;
 
     /**
      * 위치 정보 저장
@@ -56,4 +59,11 @@ public class LocationService {
             throw e;
         }
     }
-} 
+
+    /**
+     * 이메일로 사용자 조회 (LocationController.handleLocationUpdate 의 알림 메시지용 닉네임 조회)
+     */
+    public User findUserByEmail(String email) {
+        return userMapper.findByEmail(email);
+    }
+}

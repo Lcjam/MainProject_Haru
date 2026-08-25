@@ -1,7 +1,6 @@
 package com.example.demo.controller;
 
 import com.example.demo.exception.GlobalExceptionHandler;
-import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.Location;
 import com.example.demo.service.LocationService;
 import com.example.demo.service.NotificationService;
@@ -35,14 +34,13 @@ class LocationControllerContractTest {
     private final TokenUtils tokenUtils = mock(TokenUtils.class);
     private final LocationService locationService = mock(LocationService.class);
     private final NotificationService notificationService = mock(NotificationService.class);
-    private final UserMapper userMapper = mock(UserMapper.class);
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new LocationController(messagingTemplate, tokenUtils, locationService,
-                        notificationService, userMapper))
+                        notificationService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

@@ -207,6 +207,7 @@ public class PostReactionService {
      * 게시판 멤버십 검증까지 포함하지만, 컨트롤러의 현행 동작은 멤버십 검증이 없다. "순수 이동" 원칙에 따라
      * reactToPost 를 재사용하지 않고 컨트롤러의 현행 로직을 그대로 옮겼다.
      */
+    @Transactional
     public Map<String, Integer> applyReaction(Long postId, String userEmail, String reactionType) {
         // 현재 사용자의 반응 확인
         PostReaction existingReaction = postReactionMapper.getUserReaction(postId, userEmail);
@@ -249,6 +250,7 @@ public class PostReactionService {
      * 여기로 전달한다. removeReaction(:108) 은 호출부 0의 죽은 코드라 재사용하지 않고 컨트롤러의 현행 로직을
      * 그대로 옮겼다.
      */
+    @Transactional
     public Map<String, Integer> deleteReactionAndSync(Long postId, String userEmail, String currentReactionType) {
         // 'LIKE' 반응이면 like_count 감소
         if ("LIKE".equals(currentReactionType)) {
@@ -266,6 +268,7 @@ public class PostReactionService {
      * PostReactionController.toggleLike(POST /{postId}/like) 의 좋아요 토글 + like_count 동기화.
      * 응답 맵의 키(liked/message/likeCount)는 컨트롤러의 현행 응답 구성과 동일하게 유지한다.
      */
+    @Transactional
     public Map<String, Object> togglePostLike(Long postId, String userEmail) {
         // 이미 좋아요를 눌렀는지 확인
         boolean alreadyLiked = postReactionMapper.hasUserReacted(postId, userEmail);

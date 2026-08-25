@@ -294,6 +294,7 @@ public class ChatService {
      * 함께하기 요청 승인 처리 (승인 상태 변경 → 모집 인원 증가 → 모집 마감 노출 갱신, 3단계 쓰기)
      * 승인 여부/알림 발송은 호출부(ChatController)의 책임으로 남긴다.
      */
+    @Transactional
     public void approveChatRequest(Long requestId, Long productId) {
         productMapper.updateRequestApprovalStatus(requestId, "승인");
         productMapper.increaseCurrentParticipants(productId);

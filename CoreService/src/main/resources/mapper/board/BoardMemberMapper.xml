@@ -23,7 +23,7 @@
             u.profile_image_path as user_profile_image
         FROM 
             board_members bm
-            LEFT JOIN users u ON bm.user_email = u.email
+            LEFT JOIN Users u ON bm.user_email = u.email
         WHERE 
             bm.board_id = #{boardId}
         ORDER BY 
@@ -37,7 +37,7 @@
             bm.*, u.nickname as user_name, u.profile_image_path
         FROM 
             board_members bm
-            LEFT JOIN users u ON bm.user_email = u.email
+            LEFT JOIN Users u ON bm.user_email = u.email
         WHERE 
             bm.id = #{id}
     </select>
@@ -48,7 +48,7 @@
             bm.*, u.nickname as user_name, u.profile_image_path
         FROM 
             board_members bm
-            LEFT JOIN users u ON bm.user_email = u.email
+            LEFT JOIN Users u ON bm.user_email = u.email
         WHERE 
             bm.board_id = #{boardId}
             AND bm.user_email = #{userEmail}

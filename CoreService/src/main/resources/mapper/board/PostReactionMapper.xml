@@ -39,7 +39,7 @@
             u.profile_image_path as user_profile_image
         FROM 
             board_post_reactions r
-            LEFT JOIN users u ON r.user_email = u.email
+            LEFT JOIN Users u ON r.user_email = u.email
         WHERE 
             r.post_id = #{postId}
             AND r.user_email = #{userEmail}
@@ -54,7 +54,7 @@
             u.profile_image_path as user_profile_image
         FROM 
             board_post_reactions r
-            LEFT JOIN users u ON r.user_email = u.email
+            LEFT JOIN Users u ON r.user_email = u.email
         WHERE 
             r.post_id = #{postId}
         ORDER BY 
@@ -83,7 +83,7 @@
             u.profile_image_path as user_profile_image
         FROM 
             board_post_reactions r
-            LEFT JOIN users u ON r.user_email = u.email
+            LEFT JOIN Users u ON r.user_email = u.email
         WHERE 
             r.user_email = #{userEmail}
         ORDER BY 
@@ -138,7 +138,7 @@
             u.profile_image_path as user_profile_image
         FROM 
             board_post_reactions r
-            LEFT JOIN users u ON r.user_email = u.email
+            LEFT JOIN Users u ON r.user_email = u.email
         WHERE 
             r.post_id = #{postId}
         ORDER BY 

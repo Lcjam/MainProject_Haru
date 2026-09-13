@@ -378,6 +378,8 @@ public class PostService {
      * 검색 및 필터링 기능이 적용된 게시글 목록 조회
      */
     public PagedPostResponse searchPostsWithFilters(String email, PostSearchRequest request) {
+        String sortDirection = request.resolveSortDirection();
+
         // 게시판 존재 여부 확인
         Board board = boardMapper.findBoardById(request.getBoardId());
         if (board == null) {
@@ -403,7 +405,6 @@ public class PostService {
         int page = request.getPage() != null ? request.getPage() : 0;
         int size = request.getSize() != null ? request.getSize() : 10;
         String sortBy = request.getSortBy() != null ? request.getSortBy() : "createdAt";
-        String sortDirection = request.getSortDirection() != null ? request.getSortDirection() : "DESC";
         
         // 페이징 처리를 위한 offset 계산
         int offset = page * size;

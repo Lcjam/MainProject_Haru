@@ -3,9 +3,6 @@ package com.example.demo.controller;
 import com.example.demo.dto.chat.ChatRoomRequest;
 import com.example.demo.dto.chat.ChatRoomResponse;
 import com.example.demo.dto.response.ApiResponse;
-import com.example.demo.mapper.ChatRoomMapper;
-import com.example.demo.mapper.Market.ProductMapper;
-import com.example.demo.mapper.Market.ProductRequestMapper;
 import com.example.demo.model.chat.ChatRoom;
 import com.example.demo.service.ChatService;
 import com.example.demo.service.NotificationService;
@@ -23,9 +20,6 @@ public class ChatController {
 
     private final ChatService chatService;
     private final TokenUtils tokenUtils;
-    private final ChatRoomMapper chatRoomMapper;
-    private final ProductMapper productMapper;
-    private final ProductRequestMapper productRequestMapper;
     private final NotificationService notificationService;
 
     /**
@@ -131,39 +125,35 @@ public class ChatController {
         
         try {
             // 채팅방 정보 조회
-            ChatRoom chatRoom = chatRoomMapper.findChatRoomById(chatroomId, email);
-            
+            ChatRoom chatRoom = chatService.findChatRoomById(chatroomId, email);
+
             // 채팅방이 없거나 요청자가 등록자가 아닌 경우
             if (chatRoom == null) {
                 return ResponseEntity.status(404).body(ApiResponse.error("채팅방을 찾을 수 없습니다.", "404"));
             }
-            
+
             // 상품 등록자만 승인 가능
             if (!chatRoom.getSellerEmail().equals(email)) {
                 return ResponseEntity.status(403).body(ApiResponse.error("상품 등록자만 승인할 수 있습니다.", "403"));
             }
-            
+
             // ProductRequests 테이블에서 해당 요청 찾기
             Long productId = chatRoom.getProductId();
             String requesterEmail = chatRoom.getRequestEmail();
-            
+
             // 요청 정보 조회
-            Long requestId = productRequestMapper.findRequestId(productId, requesterEmail);
-            
+            Long requestId = chatService.findRequestId(productId, requesterEmail);
+
             if (requestId == null) {
                 return ResponseEntity.status(404).body(ApiResponse.error("해당 요청을 찾을 수 없습니다.", "404"));
             }
-            
-            // 요청 승인 처리
-            productMapper.updateRequestApprovalStatus(requestId, "승인");
-            
-            // 현재 모집 인원 증가
-            productMapper.increaseCurrentParticipants(productId);
-            
-            // 모집 인원 충족 시 모집 마감 처리
-            productMapper.updateProductVisibility(productId);
 
-            // 알림 추가
+            // 요청 승인 처리 (승인 상태 변경 → 모집 인원 증가 → 모집 마감 노출 갱신)
+            chatService.approveChatRequest(requestId, productId);
+
+            // 알림 추가 — approveChatRequest 의 @Transactional 경계 밖(커밋 이후)에서 발행한다.
+            // 트랜잭션 안으로 옮기지 말 것: Phase 4 에서 F1a(Redis 발행 예외가 catch 에 삼켜지는 문제)가
+            // 고쳐지면 이 호출이 실제로 예외를 던지게 되고, 그때 Redis 장애가 이미 끝난 승인 쓰기를 롤백시킨다.
             String message = String.format("\"%s\" 상품에 대한 함께하기 요청이 승인되었습니다!", productId);
             notificationService.sendNotification(requesterEmail, message, "CHAT_MESSAGE", chatroomId, productId);
             
@@ -190,7 +180,7 @@ public class ChatController {
         
         try {
             // 상품 ID와 사용자 이메일로 채팅방 조회
-            ChatRoom chatRoom = chatRoomMapper.findChatRoomByProductIdAndEmail(productId, email);
+            ChatRoom chatRoom = chatService.findChatRoomByProductIdAndEmail(productId, email);
             
             if (chatRoom == null) {
                 return ResponseEntity.status(404).body(ApiResponse.error("채팅방을 찾을 수 없습니다.", "404"));

@@ -3,10 +3,8 @@ package com.example.demo.controller;
 import com.example.demo.dto.chat.ChatMessageRequest;
 import com.example.demo.dto.chat.ChatMessagesResponse;
 import com.example.demo.dto.response.ApiResponse;
-import com.example.demo.mapper.ChatRoomMapper;
 import com.example.demo.model.chat.ChatMessage;
 import com.example.demo.model.chat.ChatRoom;
-import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.User;
 import com.example.demo.service.ChatMessageService;
 import com.example.demo.service.NotificationService;
@@ -35,8 +33,6 @@ public class ChatMessageController {
     private final TokenUtils tokenUtils;
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationService notificationService;
-    private final ChatRoomMapper chatRoomMapper;
-    private final UserMapper userMapper;
 
     /**
      * WebSocket을 통한 메시지 전송
@@ -67,8 +63,8 @@ public class ChatMessageController {
                 chatMessage
             );
 
-            // UserMapper를 직접 사용하여 사용자 정보 조회
-            User sender = userMapper.findByEmail(senderEmail);
+            // 사용자 정보 조회
+            User sender = chatMessageService.findUserByEmail(senderEmail);
             String senderNickname = sender != null ? sender.getNickname() : "알 수 없음";
 
             // 알림 메시지 구성
@@ -80,8 +76,8 @@ public class ChatMessageController {
                     : messageRequest.getContent()
             );
 
-            // ChatRoomMapper를 직접 사용하여 채팅방 정보 조회
-            ChatRoom chatRoom = chatRoomMapper.findChatRoomById(messageRequest.getChatroomId(), senderEmail);
+            // 채팅방 정보 조회
+            ChatRoom chatRoom = chatMessageService.findChatRoomById(messageRequest.getChatroomId(), senderEmail);
             if (chatRoom == null) {
                 log.error("채팅방을 찾을 수 없음: chatroomId={}", messageRequest.getChatroomId());
                 return;

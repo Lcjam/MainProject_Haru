@@ -19,7 +19,7 @@
             u.nickname AS sender_name
         FROM 
             messages m
-            LEFT JOIN users u ON m.sender_email = u.email
+            LEFT JOIN Users u ON m.sender_email = u.email
         WHERE 
             m.message_id = #{messageId}
             ORDER BY m.sent_at DESC
@@ -32,7 +32,7 @@
             u.nickname AS sender_name
         FROM 
             messages m
-            LEFT JOIN users u ON m.sender_email = u.email
+            LEFT JOIN Users u ON m.sender_email = u.email
         WHERE 
             m.chatroom_id = #{chatroomId}
         ORDER BY 

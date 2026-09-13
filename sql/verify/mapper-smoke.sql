@@ -1,19 +1,14 @@
--- 매퍼 스모크: 매퍼 XML 의 실제 SQL 을 파라미터만 리터럴로 바꿔 그대로 실행한다.
--- 컬럼·타입·제약이 하나라도 어긋나면 여기서 에러가 난다.
--- V1 마이그레이션(Board·Location 테이블 복원)이 매퍼와 맞는지 검증하는 데 썼다.
+-- 과거 수동 매퍼 스모크 fixture. 파라미터를 리터럴로 치환한 SQL이며
+-- 현재 MyBatis의 동적 SQL/매핑/트랜잭션을 자동 검증하는 테스트는 아니다.
+-- R02의 검증 명령·범위는 sql/README.md, 실제 MyBatis 통합은 R03에서 다룬다.
 --
 -- ⚠️ **데이터를 INSERT 하므로 스크래치 DB 에서만 실행할 것.** 운영/개발 haru_db 금지.
 --
--- 실행:
---   set -a && . ./CoreService/.env && set +a
---   for f in schema.sql seed-local.sql migrations/V1__board_location_tables.sql; do
---     sed 's/`haru_db`/`haru_db_verify`/g' "sql/$f" | MYSQL_PWD="$DB_PASSWORD" mysql -u "$DB_USERNAME" -h 127.0.0.1
---   done
---   MYSQL_PWD="$DB_PASSWORD" mysql -u "$DB_USERNAME" -h 127.0.0.1 --table < sql/verify/mapper-smoke.sql
---   MYSQL_PWD="$DB_PASSWORD" mysql -u "$DB_USERNAME" -h 127.0.0.1 -e "DROP DATABASE haru_db_verify;"
+-- 수동 재사용 전 전용 haru_db_verify를 R02 실행기로 초기화하고 이 DB에만
+-- 합성 사용자/참조 데이터를 준비해야 한다. schema.sql 직접 재실행은 금지한다.
+-- seed-local.sql은 USE haru_db를 포함하므로 이 DB에 그대로 실행하면 안 된다.
 --
--- 마지막 줄에 '=== ALL MAPPER QUERIES OK ===' 가 찍히면 통과.
--- (Phase 2 의 매퍼 통합 테스트 레인이 갖춰지면 그쪽으로 흡수될 임시 수단이다.)
+-- 마지막 메시지는 이 파일에 복사된 SQL의 완료 표시일 뿐 전체 매퍼 통과가 아니다.
 
 USE `haru_db_verify`;
 
@@ -77,27 +72,27 @@ UPDATE User_Account_info SET account_status = 'Withdrawal' WHERE email = 'test1@
 SELECT '--- BoardMapper.findAllBoards ---' AS step;
 SELECT b.*, u.nickname AS host_name,
        (SELECT COUNT(*) FROM board_members WHERE board_id = b.id AND status = 'ACTIVE') AS member_count
-  FROM boards b LEFT JOIN users u ON b.host_email = u.email
+  FROM boards b LEFT JOIN Users u ON b.host_email = u.email
  WHERE b.status != 'DELETED' ORDER BY b.created_at DESC;
 
 SELECT '--- PostMapper.getPostById ---' AS step;
 SELECT p.*, b.name AS board_name, u.name AS author_name, u.nickname AS author_nickname,
        u.profile_image_path AS author_profile_image
   FROM board_posts p LEFT JOIN boards b ON p.board_id = b.id
-       LEFT JOIN users u ON p.author_email = u.email
+       LEFT JOIN Users u ON p.author_email = u.email
  WHERE p.id = @post_id AND p.is_deleted = false;
 
 SELECT '--- CommentMapper.getCommentsByPostId ---' AS step;
 SELECT c.id, c.content, c.depth,
        (SELECT COUNT(*) FROM board_comments WHERE parent_id = c.id AND is_deleted = false) AS reply_count
-  FROM board_comments c LEFT JOIN users u ON c.author_email = u.email
+  FROM board_comments c LEFT JOIN Users u ON c.author_email = u.email
  WHERE c.post_id = @post_id AND c.parent_id IS NULL AND c.is_deleted = false
  ORDER BY c.created_at DESC;
 
 SELECT '--- PostMapper.findPostsWithFilters (정렬+페이징) ---' AS step;
 SELECT p.id, p.title, p.view_count FROM board_posts p
        LEFT JOIN boards b ON p.board_id = b.id
-       LEFT JOIN users u ON p.author_email = u.email
+       LEFT JOIN Users u ON p.author_email = u.email
  WHERE p.board_id = @board_id AND p.is_deleted = false
    AND (p.title LIKE CONCAT('%', '첫', '%') OR p.content LIKE CONCAT('%', '첫', '%'))
  ORDER BY p.view_count DESC LIMIT 10 OFFSET 0;
@@ -113,17 +108,17 @@ SELECT id, post_id AS postId, image_url AS imageUrl, created_at AS createdAt
 SELECT '--- BoardMemberMapper.findMembersByBoardId ---' AS step;
 SELECT bm.id, bm.user_email, bm.role, bm.status, bm.joined_at, bm.invited_by,
        u.name AS user_name, u.nickname AS user_nickname, u.profile_image_path AS user_profile_image
-  FROM board_members bm LEFT JOIN users u ON bm.user_email = u.email
+  FROM board_members bm LEFT JOIN Users u ON bm.user_email = u.email
  WHERE bm.board_id = @board_id
  ORDER BY CASE WHEN bm.role = 'ADMIN' THEN 0 ELSE 1 END, bm.id;
 
 SELECT '--- LocationMapper.getLastLocation ---' AS step;
-SELECT l.*, u.nickname AS user_nickname FROM locations l JOIN users u ON l.email = u.email
+SELECT l.*, u.nickname AS user_nickname FROM locations l JOIN Users u ON l.email = u.email
  WHERE l.chatroom_id = @chatroom_id AND l.email = 'test1@haru.com'
  ORDER BY l.timestamp DESC LIMIT 1;
 
 SELECT '--- LocationMapper.getRecentLocations (GROUP BY + HAVING) ---' AS step;
-SELECT l.*, u.nickname AS user_nickname FROM locations l JOIN users u ON l.email = u.email
+SELECT l.*, u.nickname AS user_nickname FROM locations l JOIN Users u ON l.email = u.email
  WHERE l.chatroom_id = @chatroom_id AND l.timestamp >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
  GROUP BY l.email, l.location_id, l.chatroom_id, l.latitude, l.longitude,
           l.timestamp, l.created_at, l.updated_at, u.nickname

@@ -55,7 +55,7 @@
         FROM 
             board_posts p
             LEFT JOIN boards b ON p.board_id = b.id
-            LEFT JOIN users u ON p.author_email = u.email
+            LEFT JOIN Users u ON p.author_email = u.email
         WHERE 
             p.id = #{id}
             AND p.is_deleted = false
@@ -93,7 +93,7 @@
         FROM 
             board_posts p
             LEFT JOIN boards b ON p.board_id = b.id
-            LEFT JOIN users u ON p.author_email = u.email
+            LEFT JOIN Users u ON p.author_email = u.email
         WHERE 
             p.board_id = #{boardId}
             AND p.is_deleted = false
@@ -120,7 +120,7 @@
         FROM 
             board_posts p
             LEFT JOIN boards b ON p.board_id = b.id
-            LEFT JOIN users u ON p.author_email = u.email
+            LEFT JOIN Users u ON p.author_email = u.email
         WHERE 
             p.author_email = #{email}
             AND p.is_deleted = false
@@ -157,7 +157,7 @@
         FROM 
             board_posts p
             LEFT JOIN boards b ON p.board_id = b.id
-            LEFT JOIN users u ON p.author_email = u.email
+            LEFT JOIN Users u ON p.author_email = u.email
         WHERE 
             p.board_id = #{boardId}
             AND p.is_deleted = false
@@ -180,7 +180,7 @@
         FROM 
             board_posts p
             LEFT JOIN boards b ON p.board_id = b.id
-            LEFT JOIN users u ON p.author_email = u.email
+            LEFT JOIN Users u ON p.author_email = u.email
         <where>
             p.board_id = #{boardId}
             AND p.is_deleted = false
@@ -213,18 +213,27 @@
             </if>
         </where>
         
+        ORDER BY
         <choose>
             <when test="sortBy == 'viewCount'">
-                ORDER BY p.view_count ${sortDirection}
+                p.view_count
             </when>
             <when test="sortBy == 'likeCount'">
-                ORDER BY p.like_count ${sortDirection}
+                p.like_count
             </when>
             <when test="sortBy == 'commentCount'">
-                ORDER BY p.comment_count ${sortDirection}
+                p.comment_count
             </when>
             <otherwise>
-                ORDER BY p.created_at ${sortDirection}
+                p.created_at
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="sortDirection == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
             </otherwise>
         </choose>
         
@@ -237,7 +246,7 @@
         FROM 
             board_posts p
             LEFT JOIN boards b ON p.board_id = b.id
-            LEFT JOIN users u ON p.author_email = u.email
+            LEFT JOIN Users u ON p.author_email = u.email
         <where>
             p.board_id = #{boardId}
             AND p.is_deleted = false

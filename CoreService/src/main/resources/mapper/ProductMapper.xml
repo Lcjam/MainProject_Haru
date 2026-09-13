@@ -102,12 +102,12 @@
         SELECT
         p.*, u.nickname, u.bio, p.days,
         COALESCE(pd.dopamine, 50) AS dopamine, pi.image_path
-        FROM products p
-        LEFT JOIN users u ON p.email = u.email
-        LEFT JOIN productimages pi ON p.id = pi.product_id
+        FROM Products p
+        LEFT JOIN Users u ON p.email = u.email
+        LEFT JOIN ProductImages pi ON p.id = pi.product_id
         LEFT JOIN (
         SELECT email, SUM(dopamine) AS dopamine
-        FROM pointsdopamineactivity
+        FROM PointsDopamineActivity
         GROUP BY email
         ) pd ON u.email = pd.email
         WHERE p.id = #{id}
@@ -137,12 +137,12 @@
         p.days,
         COALESCE(pd.dopamine, 50) AS dopamine,
         pi.image_path
-        FROM products p
-        LEFT JOIN users u ON p.email = u.email
-        LEFT JOIN productimages pi ON p.id = pi.product_id
+        FROM Products p
+        LEFT JOIN Users u ON p.email = u.email
+        LEFT JOIN ProductImages pi ON p.id = pi.product_id
         LEFT JOIN (
         SELECT email, SUM(dopamine) AS dopamine
-        FROM pointsdopamineactivity
+        FROM PointsDopamineActivity
         GROUP BY email
         ) pd ON u.email = pd.email
         WHERE p.is_visible = TRUE
@@ -171,12 +171,12 @@
             p.days,
             COALESCE(pd.dopamine, 50) AS dopamine,
             pi.image_path
-        FROM products p
-                 LEFT JOIN users u ON p.email = u.email
-                 LEFT JOIN productimages pi ON p.id = pi.product_id
+        FROM Products p
+                 LEFT JOIN Users u ON p.email = u.email
+                 LEFT JOIN ProductImages pi ON p.id = pi.product_id
                  LEFT JOIN (
             SELECT email, SUM(dopamine) AS dopamine
-            FROM pointsdopamineactivity
+            FROM PointsDopamineActivity
             GROUP BY email
         ) pd ON u.email = pd.email
         WHERE p.email = #{email} AND p.registration_type = '구매' AND p.is_visible = TRUE
@@ -192,12 +192,12 @@
             p.days,
             COALESCE(pd.dopamine, 50) AS dopamine,
             pi.image_path
-        FROM products p
-                 LEFT JOIN users u ON p.email = u.email
-                 LEFT JOIN productimages pi ON p.id = pi.product_id
+        FROM Products p
+                 LEFT JOIN Users u ON p.email = u.email
+                 LEFT JOIN ProductImages pi ON p.id = pi.product_id
                  LEFT JOIN (
             SELECT email, SUM(dopamine) AS dopamine
-            FROM pointsdopamineactivity
+            FROM PointsDopamineActivity
             GROUP BY email
         ) pd ON u.email = pd.email
         WHERE p.email = #{email} AND p.registration_type = '판매' AND p.is_visible = TRUE
@@ -213,13 +213,13 @@
             p.days,
             COALESCE(pd.dopamine, 50) AS dopamine,
             pi.image_path
-        FROM products p
+        FROM Products p
                  JOIN productrequests pr ON p.id = pr.product_id
-                 JOIN users u ON p.email = u.email
-                 LEFT JOIN productimages pi ON p.id = pi.product_id
+                 JOIN Users u ON p.email = u.email
+                 LEFT JOIN ProductImages pi ON p.id = pi.product_id
                  LEFT JOIN (
             SELECT email, SUM(dopamine) AS dopamine
-            FROM pointsdopamineactivity
+            FROM PointsDopamineActivity
             GROUP BY email
         ) pd ON u.email = pd.email
         WHERE pr.requester_email = #{email} AND p.is_visible = TRUE
@@ -235,13 +235,13 @@
             p.days,
             COALESCE(pd.dopamine, 50) AS dopamine,
             pi.image_path
-        FROM products p
+        FROM Products p
                  JOIN productrequests pr ON p.id = pr.product_id
-                 JOIN users u ON p.email = u.email
-                 LEFT JOIN productimages pi ON p.id = pi.product_id
+                 JOIN Users u ON p.email = u.email
+                 LEFT JOIN ProductImages pi ON p.id = pi.product_id
                  LEFT JOIN (
             SELECT email, SUM(dopamine) AS dopamine
-            FROM pointsdopamineactivity
+            FROM PointsDopamineActivity
             GROUP BY email
         ) pd ON u.email = pd.email
         WHERE pr.requester_email = #{email} AND p.is_visible = TRUE
@@ -257,12 +257,12 @@
         p.days,
         COALESCE(pd.dopamine, 50) AS dopamine,
         pi.image_path
-        FROM products p
-        LEFT JOIN users u ON p.email = u.email
-        LEFT JOIN productimages pi ON p.id = pi.product_id
+        FROM Products p
+        LEFT JOIN Users u ON p.email = u.email
+        LEFT JOIN ProductImages pi ON p.id = pi.product_id
         LEFT JOIN (
         SELECT email, SUM(dopamine) AS dopamine
-        FROM pointsdopamineactivity
+        FROM PointsDopamineActivity
         GROUP BY email
         ) pd ON u.email = pd.email
         WHERE p.email = #{email} AND p.is_visible = TRUE
@@ -282,12 +282,12 @@
         p.days,
         COALESCE(pd.dopamine, 50) AS dopamine,  <!-- 도파민 추가 -->
         pi.image_path
-        FROM products p
-        LEFT JOIN users u ON p.email = u.email
-        LEFT JOIN productimages pi ON p.id = pi.product_id
+        FROM Products p
+        LEFT JOIN Users u ON p.email = u.email
+        LEFT JOIN ProductImages pi ON p.id = pi.product_id
         LEFT JOIN (  <!-- 도파민 테이블 JOIN 추가 -->
         SELECT email, SUM(dopamine) AS dopamine
-        FROM pointsdopamineactivity
+        FROM PointsDopamineActivity
         GROUP BY email
         ) pd ON u.email = pd.email
         WHERE p.is_visible = TRUE
@@ -311,11 +311,11 @@
         sin(radians(#{latitude})) * sin(radians(p.latitude))
         )) AS distance
         FROM Products p
-        LEFT JOIN users u ON p.email = u.email
-        LEFT JOIN productimages pi ON p.id = pi.product_id
+        LEFT JOIN Users u ON p.email = u.email
+        LEFT JOIN ProductImages pi ON p.id = pi.product_id
         LEFT JOIN (
         SELECT email, SUM(dopamine) AS dopamine
-        FROM pointsdopamineactivity
+        FROM PointsDopamineActivity
         GROUP BY email
         ) pd ON u.email = pd.email
         WHERE p.transaction_type = '대면'

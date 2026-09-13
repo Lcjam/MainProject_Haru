@@ -1,0 +1,56 @@
+plugins {
+    id 'application'
+}
+
+group = 'com.haru'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    runtimeOnly('com.mysql:mysql-connector-j:8.3.0') {
+        // Classic JDBC does not use the X Protocol protobuf codec; excluding it keeps this runner narrow.
+        exclude group: 'com.google.protobuf', module: 'protobuf-java'
+    }
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+application {
+    mainClass = 'com.haru.migration.Main'
+}
+
+tasks.named('test') {
+    useJUnitPlatform {
+        excludeTags 'mysql'
+    }
+}
+
+tasks.register('mysqlIntegrationTest', Test) {
+    description = 'Runs destructive R02 tests only against an explicitly configured dedicated MySQL server.'
+    group = 'verification'
+    useJUnitPlatform {
+        includeTags 'mysql'
+    }
+    shouldRunAfter test
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    // A prior success says nothing about today's externally configured MySQL server.
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    def required = ['HARU_TEST_MYSQL_URL', 'HARU_TEST_MYSQL_USER', 'HARU_TEST_MYSQL_PASSWORD']
+    doFirst {
+        def missing = required.findAll { System.getenv(it) == null }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Dedicated MySQL test configuration is missing: ${missing.join(', ')}")
+        }
+    }
+}

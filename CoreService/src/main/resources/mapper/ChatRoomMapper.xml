@@ -17,7 +17,7 @@
             cr.*, p.email as seller_email
         FROM 
             chatrooms cr
-            JOIN products p ON cr.product_id = p.id
+            JOIN Products p ON cr.product_id = p.id
         WHERE 
             cr.chatroom_id = #{chatroomId}
             AND (p.email = #{email} OR cr.request_email = #{email})
@@ -29,7 +29,7 @@
             cr.*, p.email as seller_email
         FROM 
             chatrooms cr
-            JOIN products p ON cr.product_id = p.id
+            JOIN Products p ON cr.product_id = p.id
         WHERE 
             cr.product_id = #{productId} 
             AND cr.request_email = #{requestEmail}
@@ -45,13 +45,13 @@
              AND m.is_read = false) as unread_count
         FROM 
             chatrooms cr
-            JOIN products p ON cr.product_id = p.id
-            LEFT JOIN ProductRequests pr ON cr.product_id = pr.product_id 
+            JOIN Products p ON cr.product_id = p.id
+            LEFT JOIN productrequests pr ON cr.product_id = pr.product_id
         WHERE 
             (
                 -- 1. 채팅방에서 구매자로 참여하고 있는 경우 (request_email이 현재 사용자)
                 (cr.request_email = #{email} AND EXISTS (
-                    SELECT 1 FROM ProductRequests 
+                    SELECT 1 FROM productrequests
                     WHERE product_id = cr.product_id 
                     AND requester_email = #{email}
                     AND (approval_status = '승인' OR approval_status = '대기')
@@ -59,7 +59,7 @@
                 OR
                 -- 2. 상품 등록자로 참여하고 있는 경우 (상품의 email이 현재 사용자)
                 (p.email = #{email} AND EXISTS (
-                    SELECT 1 FROM ProductRequests 
+                    SELECT 1 FROM productrequests
                     WHERE product_id = cr.product_id
                     AND (approval_status = '승인' OR approval_status = '대기')
                 ))
@@ -131,7 +131,7 @@
                   AND m.is_read = false
             ) AS unread_count
         FROM chatrooms cr
-        JOIN products p ON cr.product_id = p.id
+        JOIN Products p ON cr.product_id = p.id
         LEFT JOIN productrequests pr 
                ON cr.product_id = pr.product_id 
               AND pr.requester_email = #{email}

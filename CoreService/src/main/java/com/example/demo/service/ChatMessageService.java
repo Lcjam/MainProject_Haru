@@ -223,6 +223,20 @@ public class ChatMessageService {
         }
     }
 
+    /**
+     * 이메일로 사용자 조회 (ChatMessageController.processMessage 의 알림 발신자 닉네임 조회용)
+     */
+    public User findUserByEmail(String email) {
+        return userMapper.findByEmail(email);
+    }
+
+    /**
+     * 채팅방 ID로 채팅방 조회 (ChatMessageController.processMessage 의 알림 수신자 판단용)
+     */
+    public ChatRoom findChatRoomById(Integer chatroomId, String email) {
+        return chatRoomMapper.findChatRoomById(chatroomId, email);
+    }
+
     private boolean isChatParticipant(ChatRoom chatRoom, String userEmail) {
         return userEmail != null && (
                 userEmail.equals(chatRoom.getSellerEmail()) ||

@@ -18,7 +18,7 @@
             (SELECT COUNT(*) FROM board_members WHERE board_id = b.id AND status = 'ACTIVE') as member_count
         FROM 
             boards b
-            LEFT JOIN users u ON b.host_email = u.email
+            LEFT JOIN Users u ON b.host_email = u.email
         WHERE 
             b.id = #{id}
             AND b.status != 'DELETED'
@@ -31,7 +31,7 @@
             (SELECT COUNT(*) FROM board_members WHERE board_id = b.id AND status = 'ACTIVE') as member_count
         FROM 
             boards b
-            LEFT JOIN users u ON b.host_email = u.email
+            LEFT JOIN Users u ON b.host_email = u.email
         WHERE 
             b.status != 'DELETED'
         ORDER BY 
@@ -45,7 +45,7 @@
             (SELECT COUNT(*) FROM board_members WHERE board_id = b.id AND status = 'ACTIVE') as member_count
         FROM 
             boards b
-            LEFT JOIN users u ON b.host_email = u.email
+            LEFT JOIN Users u ON b.host_email = u.email
         WHERE 
             b.host_email = #{hostEmail}
             AND b.status != 'DELETED'
@@ -61,7 +61,7 @@
         FROM 
             boards b
             JOIN board_members bm ON b.id = bm.board_id
-            LEFT JOIN users u ON b.host_email = u.email
+            LEFT JOIN Users u ON b.host_email = u.email
         WHERE 
             bm.user_email = #{memberEmail}
             AND bm.status = 'ACTIVE'

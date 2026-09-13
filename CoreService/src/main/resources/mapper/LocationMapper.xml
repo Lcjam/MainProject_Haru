@@ -20,7 +20,7 @@
             u.nickname as user_nickname
         FROM 
             locations l
-            JOIN users u ON l.email = u.email
+            JOIN Users u ON l.email = u.email
         WHERE 
             l.chatroom_id = #{chatroomId}
             AND l.timestamp >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
@@ -40,7 +40,7 @@
             u.nickname as user_nickname
         FROM 
             locations l
-            JOIN users u ON l.email = u.email
+            JOIN Users u ON l.email = u.email
         WHERE 
             l.chatroom_id = #{chatroomId}
             AND l.email = #{email}
@@ -68,4 +68,4 @@
         <result property="userNickname" column="user_nickname"/>
     </resultMap>
 
-</mapper> 
+</mapper>

@@ -3,8 +3,6 @@ package com.example.demo.controller.board;
 import com.example.demo.dto.board.PostReactionRequest;
 import com.example.demo.dto.board.PostReactionResponse;
 import com.example.demo.dto.response.ApiResponse;
-import com.example.demo.mapper.board.PostMapper;
-import com.example.demo.mapper.board.PostReactionMapper;
 import com.example.demo.model.board.PostReaction;
 import com.example.demo.service.PostReactionService;
 import com.example.demo.util.TokenUtils;
@@ -25,8 +23,6 @@ public class PostReactionController {
 
     private final PostReactionService postReactionService;
     private final TokenUtils tokenUtils;
-    private final PostReactionMapper postReactionMapper;
-    private final PostMapper postMapper;
 
     /**
      * 게시글 반응 추가/변경
@@ -48,40 +44,9 @@ public class PostReactionController {
         }
 
         try {
-            // 현재 사용자의 반응 확인
-            PostReaction existingReaction = postReactionMapper.getUserReaction(postId, email);
-            
-            // 반응 타입이 'LIKE'인 경우 like_count 처리
-            boolean isLikeReaction = "LIKE".equals(reactionType);
-            boolean isLikeExisting = existingReaction != null && "LIKE".equals(existingReaction.getReactionType());
-            
-            if (existingReaction == null) {
-                // 새 반응 추가
-                postReactionMapper.insertReaction(postId, email, reactionType);
-                
-                // LIKE 타입이면 like_count 증가
-                if (isLikeReaction) {
-                    postMapper.incrementLikeCount(postId);
-                }
-            } else {
-                // 기존 반응 수정 (타입이 다른 경우)
-                if (!reactionType.equals(existingReaction.getReactionType())) {
-                    postReactionMapper.updateReactionType(postId, email, reactionType);
-                    
-                    // like_count 처리 (이전 반응과 현재 반응의 LIKE 상태에 따라)
-                    if (isLikeExisting && !isLikeReaction) {
-                        // LIKE -> 다른 타입으로 변경: like_count 감소
-                        postMapper.decrementLikeCount(postId);
-                    } else if (!isLikeExisting && isLikeReaction) {
-                        // 다른 타입 -> LIKE로 변경: like_count 증가
-                        postMapper.incrementLikeCount(postId);
-                    }
-                }
-            }
+            // 반응 추가/변경 + like_count 동기화
+            Map<String, Integer> statistics = postReactionService.applyReaction(postId, email, reactionType);
 
-            // 게시글의 현재 반응 통계 조회
-            Map<String, Integer> statistics = postReactionMapper.getReactionStatistics(postId);
-            
             Map<String, Object> response = new HashMap<>();
             response.put("postId", postId);
             response.put("userEmail", email);
@@ -110,22 +75,15 @@ public class PostReactionController {
         }
 
         try {
-            PostReaction existingReaction = postReactionMapper.getUserReaction(postId, email);
+            PostReaction existingReaction = postReactionService.getUserReaction(postId, email);
             if (existingReaction == null) {
                 return ResponseEntity.status(404).body(ApiResponse.error("삭제할 반응이 없습니다.", "404"));
             }
-            
-            // 'LIKE' 반응이면 like_count 감소
-            if ("LIKE".equals(existingReaction.getReactionType())) {
-                postMapper.decrementLikeCount(postId);
-            }
 
-            // 반응 삭제
-            postReactionMapper.deleteReaction(postId, email);
-            
-            // 게시글의 현재 반응 통계 조회
-            Map<String, Integer> statistics = postReactionMapper.getReactionStatistics(postId);
-            
+            // 반응 삭제 + like_count 동기화
+            Map<String, Integer> statistics = postReactionService.deleteReactionAndSync(
+                    postId, email, existingReaction.getReactionType());
+
             Map<String, Object> response = new HashMap<>();
             response.put("message", "반응이 삭제되었습니다.");
             response.put("statistics", statistics);
@@ -201,29 +159,8 @@ public class PostReactionController {
         }
 
         try {
-            // 이미 좋아요를 눌렀는지 확인
-            boolean alreadyLiked = postReactionMapper.hasUserReacted(postId, email);
-            Map<String, Object> response = new HashMap<>();
-
-            if (alreadyLiked) {
-                // 좋아요 취소: 반응 삭제 및 카운트 감소
-                postReactionMapper.deleteReaction(postId, email);
-                postMapper.decrementLikeCount(postId);
-                
-                response.put("liked", false);
-                response.put("message", "좋아요가 취소되었습니다.");
-            } else {
-                // 좋아요 추가: 반응 추가 및 카운트 증가
-                postReactionMapper.insertReaction(postId, email, "LIKE");
-                postMapper.incrementLikeCount(postId);
-                
-                response.put("liked", true);
-                response.put("message", "좋아요가 추가되었습니다.");
-            }
-            
-            // 업데이트된 좋아요 수를 응답에 포함
-            Integer likeCount = postMapper.getPostById(postId).getLikeCount();
-            response.put("likeCount", likeCount);
+            // 좋아요 토글 + like_count 동기화
+            Map<String, Object> response = postReactionService.togglePostLike(postId, email);
 
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (Exception e) {

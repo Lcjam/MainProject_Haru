@@ -48,7 +48,7 @@
             (SELECT COUNT(*) FROM board_comments WHERE parent_id = c.id AND is_deleted = false) as reply_count
         FROM 
             board_comments c
-            LEFT JOIN users u ON c.author_email = u.email
+            LEFT JOIN Users u ON c.author_email = u.email
         WHERE 
             c.id = #{id}
             AND c.is_deleted = false
@@ -64,7 +64,7 @@
             (SELECT COUNT(*) FROM board_comments WHERE parent_id = c.id AND is_deleted = false) as reply_count
         FROM 
             board_comments c
-            LEFT JOIN users u ON c.author_email = u.email
+            LEFT JOIN Users u ON c.author_email = u.email
         WHERE 
             c.post_id = #{postId}
             AND c.parent_id IS NULL
@@ -91,7 +91,7 @@
             0 as reply_count
         FROM 
             board_comments c
-            LEFT JOIN users u ON c.author_email = u.email
+            LEFT JOIN Users u ON c.author_email = u.email
         WHERE 
             c.parent_id = #{parentId}
             AND c.is_deleted = false
@@ -131,7 +131,7 @@
             (SELECT COUNT(*) FROM board_comments WHERE parent_id = c.id AND is_deleted = false) as reply_count
         FROM 
             board_comments c
-            LEFT JOIN users u ON c.author_email = u.email
+            LEFT JOIN Users u ON c.author_email = u.email
         WHERE 
             c.author_email = #{email}
             AND c.is_deleted = false

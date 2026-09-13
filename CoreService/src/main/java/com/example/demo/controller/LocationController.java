@@ -13,7 +13,6 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 import com.example.demo.service.NotificationService;
-import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.User;
 
 import java.security.Principal;
@@ -29,7 +28,6 @@ public class LocationController {
     private final TokenUtils tokenUtils;
     private final LocationService locationService;
     private final NotificationService notificationService;
-    private final UserMapper userMapper;
 
 
     /**
@@ -63,7 +61,7 @@ public class LocationController {
                 "/topic/location." + location.getChatroomId(),
                 location
             );
-            User sender = userMapper.findByEmail(senderEmail);
+            User sender = locationService.findUserByEmail(senderEmail);
             String sendNickname = sender.getNickname();
 
             // 알림 추가 (Redis를 통한 알림)

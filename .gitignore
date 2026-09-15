@@ -61,3 +61,7 @@ awesome-codex-subagents/
 *.pfx
 *.jks
 *.keystore
+
+# Markdown: README.md 외 원격 제외
+*.md
+!README.md

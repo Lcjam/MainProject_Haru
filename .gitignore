@@ -62,6 +62,6 @@ awesome-codex-subagents/
 *.jks
 *.keystore
 
-# Markdown: README.md 외 원격 제외
+# Markdown: 루트 README.md 외 원격 제외
 *.md
-!README.md
+!/README.md

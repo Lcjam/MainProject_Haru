@@ -53,7 +53,7 @@ public interface ChatRoomMapper {
     @Select("SELECT * FROM chatrooms " +
             "WHERE product_id = #{productId} " +
             "AND (request_email = #{email} OR EXISTS (" +
-            "    SELECT 1 FROM products p " +
+            "    SELECT 1 FROM Products p " +
             "    WHERE p.id = chatrooms.product_id " +
             "    AND p.email = #{email}" +
             "))")

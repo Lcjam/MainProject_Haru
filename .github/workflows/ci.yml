@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend-test:
+    name: ${{ matrix.service }} test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [CoreService, AssistService, GateWay]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: ${{ matrix.service }}/**/*.gradle*
+      - name: Run tests
+        working-directory: ${{ matrix.service }}
+        run: |
+          chmod +x gradlew
+          ./gradlew test --no-daemon
+
+  frontend-test:
+    name: React test and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vite-react-teamsketch
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: vite-react-teamsketch/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

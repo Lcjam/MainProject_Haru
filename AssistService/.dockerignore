@@ -1,0 +1,7 @@
+# 허용 목록: Gradle 설정과 main 소스만 보낸다 (.env, build/, bin/, 로그 제외).
+**
+!settings.gradle
+!build.gradle
+!src/
+!src/main/
+!src/main/**

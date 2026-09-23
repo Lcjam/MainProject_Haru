@@ -1,0 +1,4 @@
+# 허용 목록: 모델(.gguf)·로그·가상환경·.env 는 build context에서 제외한다.
+**
+!requirements.txt
+!llamaServer.py

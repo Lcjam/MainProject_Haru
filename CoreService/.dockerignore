@@ -1,0 +1,11 @@
+# 허용 목록: Gradle 설정과 main 소스만 보낸다 (.env, build/, bin/, sql/, 로그 제외).
+**
+!settings.gradle
+!build.gradle
+!src/
+!src/main/
+!src/main/**
+# 로컬 사용자 업로드 파일은 이미지/JAR에 넣지 않는다 (기본 프로필 이미지만 유지).
+src/main/resources/static/uploads/
+src/main/resources/static/profile-images/*
+!src/main/resources/static/profile-images/default-profile.png

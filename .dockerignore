@@ -1,0 +1,10 @@
+**
+!sql/
+!sql/build.gradle
+!sql/settings.gradle
+!sql/src/
+!sql/src/**
+!sql/schema.sql
+!sql/migrations/
+!sql/migrations/**
+!sql/docker-entrypoint.sh

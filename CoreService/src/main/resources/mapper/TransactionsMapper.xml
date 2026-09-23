@@ -6,8 +6,8 @@
 
     <!-- 거래 생성 -->
     <insert id="insertTransaction" parameterType="com.example.demo.dto.Market.TransactionsRequest" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO Transactions (product_id, request_email, seller_email, transaction_status, transaction_date, payment_status, price, description, created_at, updated_at)
-        VALUES (#{productId}, #{requestEmail}, #{sellerEmail}, '진행중', NOW(), '미완료', #{price}, #{description}, NOW(), NOW());
+        INSERT INTO Transactions (product_id, buyer_email, seller_email, transaction_status, transaction_date, payment_status, price, description, created_at, updated_at)
+        VALUES (#{productId}, #{buyerEmail}, #{sellerEmail}, '진행중', NOW(), '미완료', #{price}, #{description}, NOW(), NOW());
     </insert>
 
     <!-- 특정 거래 조회 -->
@@ -17,7 +17,7 @@
 
     <!-- 사용자별 거래 내역 조회 -->
     <select id="findTransactionsByUser" parameterType="string" resultType="com.example.demo.dto.Market.TransactionsResponse">
-        SELECT * FROM Transactions WHERE request_email = #{email} OR seller_email = #{email};
+        SELECT * FROM Transactions WHERE buyer_email = #{email} OR seller_email = #{email};
     </select>
 
 

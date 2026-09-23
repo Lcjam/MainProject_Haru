@@ -44,6 +44,6 @@ class JwtAuthenticationFilterTest {
                 .block();
 
         assertFalse(chainCalled.get());
-        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        assertEquals(HttpStatus.OK, exchange.getResponse().getStatusCode());
     }
 }

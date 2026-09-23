@@ -5,6 +5,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+# 값을 넘긴 경우에만 빌드 환경변수로 노출되어 .env.production 값을 덮어쓴다 (미지정 시 기존 동작 유지).
+ARG VITE_API_URL
+ARG VITE_WS_URL
 RUN npm run build
 
 # Nginx 서비스 스테이지

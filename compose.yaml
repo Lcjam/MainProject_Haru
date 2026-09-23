@@ -1,0 +1,217 @@
+name: ${COMPOSE_PROJECT_NAME:-haru-dev}
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Copy .env.compose.example to .env and set MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_HOST: "%"
+      TZ: ${TZ:-Asia/Seoul}
+    command:
+      - --lower-case-table-names=0
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    expose:
+      - "3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      backend:
+        aliases:
+          - mysql-container
+
+  redis:
+    image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Copy .env.compose.example to .env and set REDIS_PASSWORD}
+      TZ: ${TZ:-Asia/Seoul}
+    command:
+      - sh
+      - -ec
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    networks:
+      backend:
+        aliases:
+          - redis-container
+
+  migrator:
+    build:
+      context: .
+      dockerfile: sql/Dockerfile
+    environment:
+      HARU_DB_URL: jdbc:mysql://mysql:3306/?serverTimezone=${TZ:-Asia/Seoul}&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
+      HARU_DATABASE: ${MYSQL_DATABASE:-haru_db}
+      HARU_DB_USER: root
+      HARU_DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Copy .env.compose.example to .env and set MYSQL_ROOT_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - backend
+
+  core:
+    build:
+      context: ./CoreService
+      dockerfile: Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: compose
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-haru_db}?serverTimezone=${TZ:-Asia/Seoul}&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Copy .env.compose.example to .env and set MYSQL_ROOT_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Copy .env.compose.example to .env and set REDIS_PASSWORD}
+      UPLOAD_ROOT: /data
+      JWT_SECRET: ${JWT_SECRET:?Copy .env.compose.example to .env and set JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      OAUTH2_REDIRECT_URI: ${OAUTH2_REDIRECT_URI:-http://localhost:3000/oauth2/redirect}
+    expose:
+      - "8081"
+    volumes:
+      - uploads_data:/data
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8081/api/core/hobbies/simple >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      backend:
+        aliases:
+          - core-container
+
+  assist:
+    build:
+      context: ./AssistService
+      dockerfile: Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: compose
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-haru_db}?serverTimezone=${TZ:-Asia/Seoul}&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Copy .env.compose.example to .env and set MYSQL_ROOT_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Copy .env.compose.example to .env and set JWT_SECRET}
+      GATEWAY_BASE_URL: http://gateway-container:8080
+      SMS_API_KEY: ${SMS_API_KEY:-}
+      SMS_API_SECRET: ${SMS_API_SECRET:-}
+      SMS_API_URL: ${SMS_API_URL:-}
+      NAVER_CLOUD_CHATBOT_SECRET_KEY: ${NAVER_CLOUD_CHATBOT_SECRET_KEY:-}
+      NAVER_CLOUD_CHATBOT_API_URL: ${NAVER_CLOUD_CHATBOT_API_URL:-}
+      NAVER_CLOUD_OCR_SECRET_KEY: ${NAVER_CLOUD_OCR_SECRET_KEY:-}
+      NAVER_CLOUD_OCR_API_URL: ${NAVER_CLOUD_OCR_API_URL:-}
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+    expose:
+      - "8082"
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8082/v3/api-docs >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      backend:
+        aliases:
+          - assist-container
+
+  gateway:
+    build:
+      context: ./GateWay
+      dockerfile: Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: compose
+      GATEWAY_PROFILE: prod
+      JWT_SECRET: ${JWT_SECRET:?Copy .env.compose.example to .env and set JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
+    depends_on:
+      core:
+        condition: service_healthy
+      assist:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/api/core/hobbies/simple >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      backend:
+        aliases:
+          - gateway-container
+
+  fastapi:
+    profiles: ["ai"]
+    build:
+      context: ./FastAPI
+      dockerfile: Dockerfile
+    environment:
+      LLAMA_MODEL_PATH: /models/${LLAMA_MODEL_FILE:-tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf}
+      LLAMA_HOST: 0.0.0.0
+      LLAMA_PORT: "8001"
+      LLAMA_N_CTX: ${LLAMA_N_CTX:-2048}
+      LLAMA_N_GPU_LAYERS: ${LLAMA_N_GPU_LAYERS:-0}
+    expose:
+      - "8001"
+    volumes:
+      - ${LLAMA_MODEL_DIR:-./FastAPI/models}:/models:ro
+    restart: unless-stopped
+    networks:
+      backend:
+        aliases:
+          - fastapi-container
+
+  frontend:
+    profiles: ["ui"]
+    build:
+      context: ./vite-react-teamsketch
+      dockerfile: Dockerfile
+      args:
+        ENV: compose
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api}
+        VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8080/ws}
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend
+
+volumes:
+  mysql_data:
+  redis_data:
+  uploads_data:
+
+networks:
+  backend:
+    driver: bridge

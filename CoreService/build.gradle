@@ -2,7 +2,10 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.3.7'
 	id 'io.spring.dependency-management' version '1.1.6'
+	id 'jacoco'
 }
+
+import org.gradle.testing.jacoco.tasks.JacocoReport
 
 group = 'com.example'
 version = '0.0.1-SNAPSHOT'
@@ -75,9 +78,79 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 }
 
-// JUnit 5 (Jupiter) 플랫폼 사용 — 없으면 JUnit4 러너라 Jupiter 테스트를 못 찾는다
-tasks.named('test') {
-	useJUnitPlatform()
+sourceSets {
+	test {
+		java.srcDir '../sql/src/main/java'
+	}
 }
 
+// JUnit 5 (Jupiter) 플랫폼 사용 — 없으면 JUnit4 러너라 Jupiter 테스트를 못 찾는다
+tasks.named('test') {
+	useJUnitPlatform {
+		excludeTags 'mysql', 'redis'
+	}
+}
 
+def requiredNonBlankEnvironment = { List<String> names, String taskName ->
+	def missing = names.findAll { System.getenv(it) == null || System.getenv(it).isBlank() }
+	if (!missing.isEmpty()) {
+		throw new GradleException("${taskName} requires explicitly configured environment: ${missing.join(', ')}")
+	}
+}
+
+tasks.register('mysqlIntegrationTest', Test) {
+	group = 'verification'
+	description = 'Runs MySQL integration tests against the explicitly configured dedicated server.'
+	useJUnitPlatform { includeTags 'mysql' }
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	outputs.upToDateWhen { false }
+	outputs.cacheIf { false }
+	doFirst {
+		requiredNonBlankEnvironment(['HARU_TEST_MYSQL_URL', 'HARU_TEST_MYSQL_USER'], name)
+		if (System.getenv('HARU_TEST_MYSQL_PASSWORD') == null) {
+			throw new GradleException('mysqlIntegrationTest requires HARU_TEST_MYSQL_PASSWORD to be present; an empty password is allowed')
+		}
+	}
+}
+
+tasks.register('redisIntegrationTest', Test) {
+	group = 'verification'
+	description = 'Runs Redis integration tests against the explicitly configured dedicated server.'
+	useJUnitPlatform { includeTags 'redis' }
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	outputs.upToDateWhen { false }
+	outputs.cacheIf { false }
+	doFirst {
+		requiredNonBlankEnvironment(['HARU_TEST_REDIS_HOST', 'HARU_TEST_REDIS_PORT'], name)
+		try {
+			Integer.parseInt(System.getenv('HARU_TEST_REDIS_PORT'))
+		} catch (NumberFormatException exception) {
+			throw new GradleException('HARU_TEST_REDIS_PORT must be an integer', exception)
+		}
+	}
+}
+
+tasks.named('mysqlIntegrationTest') {
+	mustRunAfter tasks.named('test')
+}
+
+tasks.named('redisIntegrationTest') {
+	mustRunAfter tasks.named('mysqlIntegrationTest')
+}
+
+tasks.register('jacocoIntegrationReport', JacocoReport) {
+	group = 'verification'
+	description = 'Runs test, MySQL, and Redis lanes in order and writes their combined JaCoCo report.'
+	dependsOn tasks.named('test'), tasks.named('mysqlIntegrationTest'), tasks.named('redisIntegrationTest')
+	executionData.from(['test', 'mysqlIntegrationTest', 'redisIntegrationTest'].collect { taskName ->
+		tasks.named(taskName).map { it.jacoco.destinationFile }
+	})
+	sourceDirectories.from sourceSets.main.allSource.srcDirs
+	classDirectories.from sourceSets.main.output
+	reports {
+		html.required = true
+		xml.required = true
+	}
+}

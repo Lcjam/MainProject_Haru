@@ -24,6 +24,13 @@
         VALUES (#{productId}, #{requesterEmail}, NOW(), NOW(), '대기', '미승인');
     </insert>
 
+    <select id="findByIdForUpdate" parameterType="long" resultType="com.example.demo.model.Market.Product">
+        SELECT *
+        FROM Products
+        WHERE id = #{id}
+        FOR UPDATE
+    </select>
+
     <!-- 모집 인원 증가 -->
     <update id="increaseCurrentParticipants">
         UPDATE Products

@@ -20,6 +20,9 @@ public interface ProductMapper {
     // 상품 조회 (등록자는 마감된 상품도 조회가능)
     Product findById(@Param("id") Long id, @Param("email") String email);
 
+    // 참여 승인 직렬화 기준 행 조회
+    Product findByIdForUpdate(@Param("id") Long id);
+
     // 특정 카테고리 필터링 + 정렬 추가
     List<Product> findFilteredProducts(@Param("categoryId") Long categoryId, @Param("sort") String sort);
 
@@ -80,4 +83,3 @@ public interface ProductMapper {
     String findApprovalStatus(@Param("email") String email, @Param("productId") Long productId);
 
 }
-

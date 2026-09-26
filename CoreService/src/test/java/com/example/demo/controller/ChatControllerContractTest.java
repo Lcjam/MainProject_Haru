@@ -3,22 +3,30 @@ package com.example.demo.controller;
 import com.example.demo.dto.chat.ChatRoomRequest;
 import com.example.demo.dto.chat.ChatRoomResponse;
 import com.example.demo.exception.GlobalExceptionHandler;
+import com.example.demo.exception.ForbiddenException;
+import com.example.demo.exception.NotFoundException;
 import com.example.demo.model.chat.ChatRoom;
 import com.example.demo.service.ChatService;
 import com.example.demo.service.NotificationService;
+import com.example.demo.service.Market.ProductService;
 import com.example.demo.util.TokenUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,6 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ChatControllerContractTest {
 
     private final ChatService chatService = mock(ChatService.class);
+    private final ProductService productService = mock(ProductService.class);
     private final TokenUtils tokenUtils = mock(TokenUtils.class);
     private final NotificationService notificationService = mock(NotificationService.class);
     private MockMvc mockMvc;
@@ -40,7 +49,7 @@ class ChatControllerContractTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new ChatController(chatService, tokenUtils, notificationService))
+                .standaloneSetup(new ChatController(chatService, productService, tokenUtils, notificationService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -198,13 +207,27 @@ class ChatControllerContractTest {
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer bad"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(productService);
+    }
+
+    @Test
+    @DisplayName("approveChatMember: Authorization 헤더 누락은 401")
+    void approveChatMember_missingAuthorization_returns401() throws Exception {
+        mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("401"))
+                .andExpect(jsonPath("$.data").value("인증되지 않은 요청입니다."));
+
+        verifyNoInteractions(productService);
     }
 
     @Test
     @DisplayName("approveChatMember: 채팅방이 없으면 404")
     void approveChatMember_chatRoomNotFound_returns404() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("seller@haru.com");
-        given(chatService.findChatRoomById(1, "seller@haru.com")).willReturn(null);
+        given(productService.approveProductRequestByChatroom("seller@haru.com", 1))
+                .willThrow(new NotFoundException("채팅방을 찾을 수 없습니다."));
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isNotFound())
@@ -216,24 +239,21 @@ class ChatControllerContractTest {
     @DisplayName("approveChatMember: 요청자가 등록자(판매자)가 아니면 403")
     void approveChatMember_notSeller_returns403() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("buyer@haru.com");
-        ChatRoom chatRoom = ChatRoom.builder().chatroomId(1).sellerEmail("seller@haru.com")
-                .productId(5L).requestEmail("buyer@haru.com").build();
-        given(chatService.findChatRoomById(1, "buyer@haru.com")).willReturn(chatRoom);
+        given(productService.approveProductRequestByChatroom("buyer@haru.com", 1))
+                .willThrow(new ForbiddenException("해당 상품의 등록자만 요청을 승인할 수 있습니다."));
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("403"))
-                .andExpect(jsonPath("$.data").value("상품 등록자만 승인할 수 있습니다."));
+                .andExpect(jsonPath("$.data").value("해당 상품의 등록자만 요청을 승인할 수 있습니다."));
     }
 
     @Test
     @DisplayName("approveChatMember: 함께하기 요청을 찾지 못하면 404")
     void approveChatMember_requestNotFound_returns404() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("seller@haru.com");
-        ChatRoom chatRoom = ChatRoom.builder().chatroomId(1).sellerEmail("seller@haru.com")
-                .productId(5L).requestEmail("buyer@haru.com").build();
-        given(chatService.findChatRoomById(1, "seller@haru.com")).willReturn(chatRoom);
-        given(chatService.findRequestId(5L, "buyer@haru.com")).willReturn(null);
+        given(productService.approveProductRequestByChatroom("seller@haru.com", 1))
+                .willThrow(new NotFoundException("해당 요청을 찾을 수 없습니다."));
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isNotFound())
@@ -245,29 +265,54 @@ class ChatControllerContractTest {
     @DisplayName("approveChatMember: 정상 승인은 200 + success")
     void approveChatMember_success() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("seller@haru.com");
-        ChatRoom chatRoom = ChatRoom.builder().chatroomId(1).sellerEmail("seller@haru.com")
-                .productId(5L).requestEmail("buyer@haru.com").build();
-        given(chatService.findChatRoomById(1, "seller@haru.com")).willReturn(chatRoom);
-        given(chatService.findRequestId(5L, "buyer@haru.com")).willReturn(99L);
+        given(productService.approveProductRequestByChatroom("seller@haru.com", 1))
+                .willReturn(approvalResponse("상품 요청이 승인되어 거래가 생성되었습니다."));
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
-                .andExpect(jsonPath("$.code").value("200"))
-                .andExpect(jsonPath("$.data").value("요청이 승인되었습니다."));
+                .andExpect(jsonPath("$.message").value("요청이 성공적으로 처리되었습니다."))
+                .andExpect(jsonPath("$.data").value("상품 요청이 승인되어 거래가 생성되었습니다."))
+                .andExpect(jsonPath("$.code").value("200"));
+
+        verify(productService).approveProductRequestByChatroom("seller@haru.com", 1);
+        verifyNoInteractions(chatService);
+    }
+
+    @Test
+    @DisplayName("approveChatMember: 멱등 재호출은 direct 승인과 같은 success envelope를 그대로 반환한다")
+    void approveChatMember_idempotent_returnsProductServiceResponse() throws Exception {
+        given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("seller@haru.com");
+        given(productService.approveProductRequestByChatroom("seller@haru.com", 1))
+                .willReturn(approvalResponse("이미 승인된 요청입니다."));
+
+        mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.message").value("요청이 성공적으로 처리되었습니다."))
+                .andExpect(jsonPath("$.data").value("이미 승인된 요청입니다."))
+                .andExpect(jsonPath("$.code").value("200"));
+    }
+
+    private ResponseEntity<Map<String, String>> approvalResponse(String data) {
+        return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "요청이 성공적으로 처리되었습니다.",
+                "data", data,
+                "code", "200"));
     }
 
     @Test
     @DisplayName("approveChatMember: 예외 발생 시 500 + 고정 메시지")
     void approveChatMember_exception_returns500() throws Exception {
         given(tokenUtils.getEmailFromAuthHeader(anyString())).willReturn("seller@haru.com");
-        given(chatService.findChatRoomById(1, "seller@haru.com"))
+        given(productService.approveProductRequestByChatroom("seller@haru.com", 1))
                 .willThrow(new RuntimeException("DB 오류"));
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("500"))
-                .andExpect(jsonPath("$.data").value("요청 처리 중 오류가 발생했습니다."));
+                .andExpect(jsonPath("$.data").value("서버 오류가 발생했습니다."));
     }
 
     // ---- GET /api/core/chat/rooms/product/{productId} (getChatRoomIdByProductId) ----

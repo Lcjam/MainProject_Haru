@@ -22,6 +22,13 @@
             cr.chatroom_id = #{chatroomId}
             AND (p.email = #{email} OR cr.request_email = #{email})
     </select>
+
+    <select id="findByIdForUpdate" resultType="com.example.demo.model.chat.ChatRoom">
+        SELECT *
+        FROM chatrooms
+        WHERE chatroom_id = #{chatroomId}
+        FOR UPDATE
+    </select>
     
     <!-- 상품 ID와 구매자 이메일로 채팅방 조회 -->
     <select id="findChatRoomByProductAndBuyer" resultMap="chatRoomResultMap">

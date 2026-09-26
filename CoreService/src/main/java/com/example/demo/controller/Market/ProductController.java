@@ -62,7 +62,7 @@ public class ProductController {
 
     /** 상품 요청 승인 (등록자만 승인 가능) **/
     @PostMapping("/requests/approve")
-    public ResponseEntity<BaseResponse<String>> approveProductRequest(
+    public ResponseEntity<?> approveProductRequest(
             @RequestHeader("Authorization") String token,
             @RequestBody Map<String, Long> requestData) { // JSON 데이터를 받음
 
@@ -234,7 +234,6 @@ public class ProductController {
         }
     }
 }
-
 
 
 

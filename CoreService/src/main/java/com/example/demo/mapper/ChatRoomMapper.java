@@ -18,6 +18,8 @@ public interface ChatRoomMapper {
     
     // 채팅방 ID로 채팅방 조회 - 매개변수 순서 수정
     ChatRoom findChatRoomById(@Param("chatroomId") Integer chatroomId, @Param("email") String email);
+
+    ChatRoom findByIdForUpdate(@Param("chatroomId") Integer chatroomId);
     
     // 상품 ID와 구매자 이메일로 채팅방 조회
     ChatRoom findChatRoomByProductAndBuyer(

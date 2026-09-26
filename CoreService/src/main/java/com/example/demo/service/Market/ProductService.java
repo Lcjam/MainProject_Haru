@@ -5,11 +5,16 @@ import com.example.demo.dto.Market.ProductResponse;
 import com.example.demo.dto.Market.TransactionsRequest;
 import com.example.demo.dto.chat.ChatRoomRequest;
 import com.example.demo.dto.chat.ChatRoomResponse;
+import com.example.demo.mapper.ChatRoomMapper;
 import com.example.demo.mapper.Market.ProductMapper;
 import com.example.demo.mapper.Market.ProductImageMapper;
+import com.example.demo.mapper.Market.ProductRequestMapper;
 import com.example.demo.mapper.Market.TransactionsMapper;
+import com.example.demo.exception.ForbiddenException;
+import com.example.demo.exception.NotFoundException;
 import com.example.demo.model.Market.Product;
 import com.example.demo.model.Market.ProductImage;
+import com.example.demo.model.chat.ChatRoom;
 import com.example.demo.service.ChatService;
 import com.example.demo.service.NotificationService;
 import com.example.demo.util.BaseResponse;
@@ -21,6 +26,8 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.example.demo.mapper.Market.UserLocationMapper;
@@ -36,6 +43,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ProductService {
     private final ProductMapper productMapper;
+    private final ProductRequestMapper productRequestMapper;
+    private final ChatRoomMapper chatRoomMapper;
     private final ProductImageMapper productImageMapper;
     private final NotificationService notificationService;
     private final ImageUploadService imageUploadService;
@@ -235,92 +244,118 @@ public class ProductService {
 
     /** 승인 완료 시, 모집인원 증가 및 거래 테이블 연결 **/
     @Transactional
-    public ResponseEntity<BaseResponse<String>> approveProductRequest(String ownerEmail, Long productId, Long requestId) {
-        try {
-            // 상품 정보 가져오기
-            Product product = productMapper.findById(productId, ownerEmail);
-            if (product == null) {
-                return ResponseEntity.status(404).body(new BaseResponse<>("해당 상품을 찾을 수 없습니다."));
-            }
-
-            // 요청자의 이메일 가져오기
-            String requesterEmail = productMapper.findRequesterEmailByRequestId(requestId);
-            if (requesterEmail == null) {
-                return ResponseEntity.status(404).body(new BaseResponse<>("요청자를 찾을 수 없습니다."));
-            }
-
-            // 등록자와 요청자가 같은 경우 승인 불가능
-            if (ownerEmail.equals(requesterEmail)) {
-                return ResponseEntity.status(403).body(new BaseResponse<>("승인 실패: 등록자와 요청자가 동일합니다."));
-            }
-
-            // 상품 등록자가 아닌 경우 승인 불가능
-            if (!product.getEmail().equals(ownerEmail)) {
-                return ResponseEntity.status(403).body(new BaseResponse<>("해당 상품의 등록자만 요청을 승인할 수 있습니다."));
-            }
-
-            // 현재 승인된 참여 인원 가져오기 (미승인 요청 제외)
-            int approvedParticipants = productMapper.getCurrentParticipants(productId);
-
-            // 최대 참여 인원을 초과할 수 없는지 확인
-            if (approvedParticipants >= product.getMaxParticipants()) {
-                return ResponseEntity.status(400).body(new BaseResponse<>("승인 불가: 최대 참여 인원을 초과할 수 없습니다."));
-            }
-
-            // 상품 요청 승인 처리 (`ProductRequests` 테이블 업데이트)
-            productMapper.updateRequestApprovalStatus(requestId, "승인");
-            approvedParticipants++;
-
-            // 승인된 요청이 남아있으므로 `currentParticipants` 증가 가능
-            productMapper.increaseCurrentParticipants(productId);
-
-            // 상품명 가져오기
-            String productName = product.getTitle();
-            String message = String.format("\"%s\" 요청이 승인되었습니다!", productName);
-
-            // 실시간 알림 전송 (요청한 사용자에게)
-            notificationService.sendNotification(
-                requesterEmail, 
-                message, 
-                "PRODUCT_REQUEST",
-                0,
-                productId   
-            );
-
-            // 거래 테이블 연동 (buyerEmail, sellerEmail 자동 설정)
-            String buyerEmail;
-            String sellerEmail;
-
-            if (product.getRegistrationType().equals("판매")) {
-                buyerEmail = requesterEmail;  // 요청자가 구매자
-                sellerEmail = ownerEmail;  // 상품 등록자가 판매자
-            } else {
-                buyerEmail = ownerEmail;  // 상품 등록자가 구매자
-                sellerEmail = requesterEmail;  // 요청자가 판매자
-            }
-
-            TransactionsRequest transaction = TransactionsRequest.builder()
-                    .productId(productId)
-                    .buyerEmail(buyerEmail)
-                    .sellerEmail(sellerEmail)
-                    .price(product.getPrice())
-                    .description("상품 요청 승인으로 생성된 거래")
-                    .build();
-
-            transactionsMapper.insertTransaction(transaction); // 거래 테이블에 저장
-
-            // 모집이 완료된 경우 자동으로 상태를 '완료'로 변경
-            if (approvedParticipants + 1 >= product.getMaxParticipants()) {
-                productMapper.updateRequestStatusToComplete(productId); // 승인된 요청들의 상태 변경
-                productMapper.updateProductStatusToComplete(productId); // 상품 모집 마감 처리
-            }
-
-            return ResponseEntity.ok(new BaseResponse<>("상품 요청이 승인되어 거래가 생성되었습니다."));
-
-        } catch (Exception ex) {
-            return ResponseEntity.internalServerError()
-                    .body(new BaseResponse<>("상품 요청 승인 중 오류 발생: " + ex.getMessage()));
+    public ResponseEntity<Map<String, String>> approveProductRequest(String ownerEmail, Long productId, Long requestId) {
+        Product product = productMapper.findByIdForUpdate(productId);
+        if (product == null) {
+            throw new NotFoundException("해당 상품을 찾을 수 없습니다.");
         }
+        if (!product.getEmail().equals(ownerEmail)) {
+            throw new ForbiddenException("해당 상품의 등록자만 요청을 승인할 수 있습니다.");
+        }
+
+        com.example.demo.model.Market.ProductRequest request = productRequestMapper.findByIdForUpdate(requestId);
+        if (request == null || !productId.equals(request.getProductId())) {
+            throw new NotFoundException("해당 요청을 찾을 수 없습니다.");
+        }
+
+        return approveLockedRequest(ownerEmail, product, request);
+    }
+
+    /** 채팅방 기반 승인: chatroom → product → request 순서로 잠금한다. */
+    @Transactional
+    public ResponseEntity<Map<String, String>> approveProductRequestByChatroom(String actorEmail, Integer chatroomId) {
+        ChatRoom chatRoom = chatRoomMapper.findByIdForUpdate(chatroomId);
+        if (chatRoom == null) {
+            throw new NotFoundException("채팅방을 찾을 수 없습니다.");
+        }
+
+        Product product = productMapper.findByIdForUpdate(chatRoom.getProductId());
+        if (product == null) {
+            throw new NotFoundException("채팅방을 찾을 수 없습니다.");
+        }
+
+        boolean owner = product.getEmail().equals(actorEmail);
+        boolean requester = Objects.equals(chatRoom.getRequestEmail(), actorEmail);
+        if (!owner && !requester) {
+            throw new NotFoundException("채팅방을 찾을 수 없습니다.");
+        }
+        if (!owner) {
+            throw new ForbiddenException("해당 상품의 등록자만 요청을 승인할 수 있습니다.");
+        }
+
+        com.example.demo.model.Market.ProductRequest request =
+                productRequestMapper.findByProductIdAndRequesterEmailForUpdate(
+                        product.getId(), chatRoom.getRequestEmail());
+        if (request == null || !product.getId().equals(request.getProductId()) ||
+                !Objects.equals(chatRoom.getRequestEmail(), request.getRequesterEmail())) {
+            throw new NotFoundException("해당 요청을 찾을 수 없습니다.");
+        }
+
+        return approveLockedRequest(actorEmail, product, request);
+    }
+
+    private ResponseEntity<Map<String, String>> approveLockedRequest(
+            String ownerEmail, Product product, com.example.demo.model.Market.ProductRequest request) {
+        if (ownerEmail.equals(request.getRequesterEmail())) {
+            throw new ForbiddenException("등록자 본인의 요청은 승인할 수 없습니다.");
+        }
+
+        if ("승인".equals(request.getApprovalStatus()) ||
+                productRequestMapper.findApprovedByProductIdAndRequesterEmail(
+                        product.getId(), request.getRequesterEmail()) != null) {
+            return approvalSuccess("이미 승인된 요청입니다.");
+        }
+
+        int approvedParticipants = productMapper.getCurrentParticipants(product.getId());
+        if (approvedParticipants >= product.getMaxParticipants()) {
+            throw new IllegalArgumentException("승인 불가: 최대 참여 인원을 초과할 수 없습니다.");
+        }
+
+        productMapper.updateRequestApprovalStatus(request.getId(), "승인");
+        productMapper.increaseCurrentParticipants(product.getId());
+        productMapper.updateProductVisibility(product.getId());
+
+        String requesterEmail = request.getRequesterEmail();
+        boolean ownerSells = "판매".equals(product.getRegistrationType());
+        transactionsMapper.insertTransaction(TransactionsRequest.builder()
+                .productId(product.getId())
+                .buyerEmail(ownerSells ? requesterEmail : ownerEmail)
+                .sellerEmail(ownerSells ? ownerEmail : requesterEmail)
+                .price(product.getPrice())
+                .description("상품 요청 승인으로 생성된 거래")
+                .build());
+
+        notifyApprovalAfterCommit(product, requesterEmail);
+        return approvalSuccess("상품 요청이 승인되어 거래가 생성되었습니다.");
+    }
+
+    private ResponseEntity<Map<String, String>> approvalSuccess(String data) {
+        return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "요청이 성공적으로 처리되었습니다.",
+                "data", data,
+                "code", "200"));
+    }
+
+    private void notifyApprovalAfterCommit(Product product, String requesterEmail) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive() ||
+                !TransactionSynchronizationManager.isActualTransactionActive()) {
+            log.warn("트랜잭션 동기화가 없어 승인 알림을 건너뜁니다: productId={}", product.getId());
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    notificationService.sendNotification(
+                            requesterEmail,
+                            String.format("\"%s\" 요청이 승인되었습니다!", product.getTitle()),
+                            "PRODUCT_REQUEST", 0, product.getId());
+                } catch (RuntimeException ex) {
+                    log.error("승인 커밋 후 알림 전송 실패: productId={}", product.getId(), ex);
+                }
+            }
+        });
     }
 
 

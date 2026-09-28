@@ -10,6 +10,16 @@ import java.util.List;
 @Mapper
 @Repository
 public interface ProductRequestMapper {
+
+    ProductRequest findByIdForUpdate(@Param("requestId") Long requestId);
+
+    ProductRequest findByProductIdAndRequesterEmailForUpdate(
+        @Param("productId") Long productId,
+        @Param("requesterEmail") String requesterEmail);
+
+    ProductRequest findApprovedByProductIdAndRequesterEmail(
+        @Param("productId") Long productId,
+        @Param("requesterEmail") String requesterEmail);
     
     /**
      * 상품 ID와 요청자 이메일로 요청 정보 조회

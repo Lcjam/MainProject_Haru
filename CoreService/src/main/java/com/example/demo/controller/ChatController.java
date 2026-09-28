@@ -6,6 +6,7 @@ import com.example.demo.dto.response.ApiResponse;
 import com.example.demo.model.chat.ChatRoom;
 import com.example.demo.service.ChatService;
 import com.example.demo.service.NotificationService;
+import com.example.demo.service.Market.ProductService;
 import com.example.demo.util.TokenUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 public class ChatController {
 
     private final ChatService chatService;
+    private final ProductService productService;
     private final TokenUtils tokenUtils;
     private final NotificationService notificationService;
 
@@ -113,8 +115,8 @@ public class ChatController {
      * 등록자의 함께하기 버튼 처리 (구매 요청 승인)
      */
     @PostMapping("/{chatroomId}/approve")
-    public ResponseEntity<ApiResponse<?>> approveChatMember(
-            @RequestHeader("Authorization") String token,
+    public ResponseEntity<?> approveChatMember(
+            @RequestHeader(value = "Authorization", required = false) String token,
             @PathVariable Integer chatroomId) {
         
         String email = tokenUtils.getEmailFromAuthHeader(token);
@@ -123,45 +125,7 @@ public class ChatController {
             return ResponseEntity.status(401).body(ApiResponse.error("인증되지 않은 요청입니다.", "401"));
         }
         
-        try {
-            // 채팅방 정보 조회
-            ChatRoom chatRoom = chatService.findChatRoomById(chatroomId, email);
-
-            // 채팅방이 없거나 요청자가 등록자가 아닌 경우
-            if (chatRoom == null) {
-                return ResponseEntity.status(404).body(ApiResponse.error("채팅방을 찾을 수 없습니다.", "404"));
-            }
-
-            // 상품 등록자만 승인 가능
-            if (!chatRoom.getSellerEmail().equals(email)) {
-                return ResponseEntity.status(403).body(ApiResponse.error("상품 등록자만 승인할 수 있습니다.", "403"));
-            }
-
-            // ProductRequests 테이블에서 해당 요청 찾기
-            Long productId = chatRoom.getProductId();
-            String requesterEmail = chatRoom.getRequestEmail();
-
-            // 요청 정보 조회
-            Long requestId = chatService.findRequestId(productId, requesterEmail);
-
-            if (requestId == null) {
-                return ResponseEntity.status(404).body(ApiResponse.error("해당 요청을 찾을 수 없습니다.", "404"));
-            }
-
-            // 요청 승인 처리 (승인 상태 변경 → 모집 인원 증가 → 모집 마감 노출 갱신)
-            chatService.approveChatRequest(requestId, productId);
-
-            // 알림 추가 — approveChatRequest 의 @Transactional 경계 밖(커밋 이후)에서 발행한다.
-            // 트랜잭션 안으로 옮기지 말 것: Phase 4 에서 F1a(Redis 발행 예외가 catch 에 삼켜지는 문제)가
-            // 고쳐지면 이 호출이 실제로 예외를 던지게 되고, 그때 Redis 장애가 이미 끝난 승인 쓰기를 롤백시킨다.
-            String message = String.format("\"%s\" 상품에 대한 함께하기 요청이 승인되었습니다!", productId);
-            notificationService.sendNotification(requesterEmail, message, "CHAT_MESSAGE", chatroomId, productId);
-            
-            return ResponseEntity.ok(ApiResponse.success("요청이 승인되었습니다."));
-        } catch (Exception e) {
-            log.error("요청 승인 중 오류: {}", e.getMessage());
-            return ResponseEntity.status(500).body(ApiResponse.error("요청 처리 중 오류가 발생했습니다.", "500"));
-        }
+        return productService.approveProductRequestByChatroom(email, chatroomId);
     }
 
     /**

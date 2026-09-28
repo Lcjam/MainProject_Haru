@@ -8,12 +8,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.util.Map;
+
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -60,5 +67,51 @@ class ProductControllerImageTest {
 
         mockMvc.perform(get("/api/core/market/products/images/{imageId}", 999))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("상품 요청 승인은 인증 사용자와 productId/requestId를 ProductService 단일 경로에 전달한다")
+    void approveProductRequest_delegatesToProductService() throws Exception {
+        given(jwtTokenProvider.getUsername("Bearer ok")).willReturn("owner@haru.com");
+        given(productService.approveProductRequest("owner@haru.com", 5L, 99L))
+                .willReturn(approvalResponse("상품 요청이 승인되어 거래가 생성되었습니다."));
+
+        mockMvc.perform(post("/api/core/market/products/requests/approve")
+                        .header("Authorization", "Bearer ok")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"productId\":5,\"requestId\":99}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.message").value("요청이 성공적으로 처리되었습니다."))
+                .andExpect(jsonPath("$.data").value("상품 요청이 승인되어 거래가 생성되었습니다."))
+                .andExpect(jsonPath("$.code").value("200"));
+
+        verify(productService).approveProductRequest("owner@haru.com", 5L, 99L);
+    }
+
+    @Test
+    @DisplayName("상품 요청 승인 멱등 재호출은 네 필드 success envelope를 그대로 반환한다")
+    void approveProductRequest_idempotent_returnsCommonEnvelope() throws Exception {
+        given(jwtTokenProvider.getUsername("Bearer ok")).willReturn("owner@haru.com");
+        given(productService.approveProductRequest("owner@haru.com", 5L, 99L))
+                .willReturn(approvalResponse("이미 승인된 요청입니다."));
+
+        mockMvc.perform(post("/api/core/market/products/requests/approve")
+                        .header("Authorization", "Bearer ok")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"productId\":5,\"requestId\":99}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.message").value("요청이 성공적으로 처리되었습니다."))
+                .andExpect(jsonPath("$.data").value("이미 승인된 요청입니다."))
+                .andExpect(jsonPath("$.code").value("200"));
+    }
+
+    private ResponseEntity<Map<String, String>> approvalResponse(String data) {
+        return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "요청이 성공적으로 처리되었습니다.",
+                "data", data,
+                "code", "200"));
     }
 }

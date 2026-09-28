@@ -1,9 +1,12 @@
 package com.example.demo.integration;
 
 import com.example.demo.integration.support.MySqlTestDatabase;
+import com.example.demo.dto.Market.TransactionsRequest;
+import com.example.demo.dto.Market.TransactionsResponse;
 import com.example.demo.mapper.ChatRoomMapper;
 import com.example.demo.mapper.Market.ProductMapper;
 import com.example.demo.mapper.Market.ProductRequestMapper;
+import com.example.demo.mapper.Market.TransactionsMapper;
 import com.example.demo.mapper.UserMapper;
 import com.example.demo.mapper.board.BoardMapper;
 import com.example.demo.mapper.board.PostMapper;
@@ -13,6 +16,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -62,6 +67,35 @@ class DomainMapperIntegrationTest {
         assertEquals(300, rooms.findChatRoomByProductIdAndEmail(100L, HOST).getChatroomId());
         assertEquals(300, rooms.findChatRoomByProductIdAndEmail(100L, MEMBER).getChatroomId());
         assertNull(rooms.findChatRoomByProductIdAndEmail(100L, OUTSIDER));
+    }
+
+    @Test
+    void transactionCreate_returnsGeneratedIdAndCanBeReadByIdBuyerAndSeller() {
+        TransactionsMapper transactions = database.sqlSession().getMapper(TransactionsMapper.class);
+        TransactionsRequest request = TransactionsRequest.builder()
+                .productId(100L)
+                .buyerEmail(MEMBER)
+                .sellerEmail(HOST)
+                .price(1_000)
+                .description("R06 transaction")
+                .build();
+
+        transactions.insertTransaction(request);
+
+        assertNotNull(request.getId());
+        TransactionsResponse saved = transactions.findTransactionById(request.getId());
+        assertAll(
+                () -> assertEquals(request.getId(), saved.getId()),
+                () -> assertEquals(MEMBER, saved.getBuyerEmail()),
+                () -> assertEquals(HOST, saved.getSellerEmail()),
+                () -> assertEquals(1_000, saved.getPrice()),
+                () -> assertEquals("R06 transaction", saved.getDescription())
+        );
+        List<TransactionsResponse> buyerTransactions = transactions.findTransactionsByUser(MEMBER);
+        List<TransactionsResponse> sellerTransactions = transactions.findTransactionsByUser(HOST);
+        assertEquals(List.of(request.getId()), buyerTransactions.stream().map(TransactionsResponse::getId).toList());
+        assertEquals(List.of(request.getId()), sellerTransactions.stream().map(TransactionsResponse::getId).toList());
+        assertTrue(transactions.findTransactionsByUser(OUTSIDER).isEmpty());
     }
 
     @Test

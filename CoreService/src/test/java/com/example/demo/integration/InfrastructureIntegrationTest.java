@@ -12,11 +12,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("mysql")
 class InfrastructureIntegrationTest {
     @Test
-    void migrationsUseBaselineAndV1WithCaseSensitiveSchemaAndFixtureForeignKeys() throws Exception {
+    void migrationsUseBaselineThroughV2WithCaseSensitiveSchemaAndFixtureForeignKeys() throws Exception {
         try (MySqlTestDatabase database = MySqlTestDatabase.create()) {
             database.seedFixture();
-            assertEquals(2, database.jdbc().queryForObject("SELECT COUNT(*) FROM haru_schema_history WHERE status='SUCCESS'", Integer.class));
+            assertEquals(3, database.jdbc().queryForObject("SELECT COUNT(*) FROM haru_schema_history WHERE status='SUCCESS'", Integer.class));
             assertEquals("schema.sql", database.jdbc().queryForObject("SELECT script FROM haru_schema_history WHERE version='0'", String.class));
+            assertEquals(1, database.jdbc().queryForObject("SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema=? AND table_name='UserLocationLatest'", Integer.class, database.name()));
             assertEquals(1, database.jdbc().queryForObject("SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema=? AND table_name='Users'", Integer.class, database.name()));
             assertEquals(0, database.jdbc().queryForObject("SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema=? AND BINARY table_name = BINARY 'users'", Integer.class, database.name()));
             assertEquals(1, database.jdbc().queryForObject("SELECT COUNT(*) FROM chatrooms WHERE chatroom_id=300", Integer.class));

@@ -10,13 +10,17 @@
         VALUES (#{transactionId}, #{amount}, #{paymentMethod}, NOW());
     </insert>
 
+    <select id="findPaymentById" parameterType="long" resultType="com.example.demo.dto.Market.PaymentsResponse">
+        SELECT * FROM Payments WHERE id = #{id}
+    </select>
+
     <!-- 특정 거래의 결제 내역 조회 -->
     <select id="findPaymentsByTransaction" parameterType="long" resultType="com.example.demo.dto.Market.PaymentsResponse">
-        SELECT * FROM Payments WHERE transaction_id = #{transactionId};
+        SELECT * FROM Payments WHERE transaction_id = #{transactionId} ORDER BY id;
     </select>
 
     <!-- 특정 거래의 총 결제 금액 조회 -->
-    <select id="getTotalPaidByTransaction" parameterType="long" resultType="int">
-        SELECT SUM(amount) FROM Payments WHERE transaction_id = #{transactionId};
+    <select id="getTotalPaidByTransaction" parameterType="long" resultType="long">
+        SELECT COALESCE(SUM(amount), 0) FROM Payments WHERE transaction_id = #{transactionId};
     </select>
 </mapper>

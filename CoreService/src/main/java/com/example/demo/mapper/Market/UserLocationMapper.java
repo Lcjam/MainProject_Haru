@@ -14,4 +14,7 @@ public interface UserLocationMapper {
 
     /** 14일 이상 지난 위치 데이터를 삭제 **/
     void deleteOldUserLocations();
+
+    /** 옛 테이블에서 14일 이상 지난 위치 데이터를 삭제 **/
+    void deleteLegacyOldUserLocations();
 }

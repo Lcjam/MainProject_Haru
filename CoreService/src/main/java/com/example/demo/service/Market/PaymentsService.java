@@ -2,8 +2,11 @@ package com.example.demo.service.Market;
 
 import com.example.demo.dto.Market.PaymentsRequest;
 import com.example.demo.dto.Market.PaymentsResponse;
-import com.example.demo.mapper.Market.TransactionsMapper;
+import com.example.demo.dto.Market.TransactionsResponse;
+import com.example.demo.exception.ForbiddenException;
+import com.example.demo.exception.NotFoundException;
 import com.example.demo.mapper.Market.PaymentsMapper;
+import com.example.demo.mapper.Market.TransactionsMapper;
 import com.example.demo.util.BaseResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -11,57 +14,63 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class PaymentsService {
 
+    private static final Set<String> PAYMENT_METHODS = Set.of("포인트", "카드", "계좌이체");
+
     private final PaymentsMapper paymentsMapper;
     private final TransactionsMapper transactionsMapper;
-    private final TransactionsService transactionsService;
 
-    /**
-     * 결제 요청 (자동 상태 업데이트 포함)
-     **/
     @Transactional
-    public ResponseEntity<BaseResponse<PaymentsResponse>> createPayment(PaymentsRequest request) {
-        // 결제 요청을 DB에 저장
+    public ResponseEntity<BaseResponse<PaymentsResponse>> createPayment(
+            PaymentsRequest request, String actorEmail) {
+        if (request == null || request.getTransactionId() == null || request.getPaymentMethod() == null
+                || !PAYMENT_METHODS.contains(request.getPaymentMethod())) {
+            throw new IllegalArgumentException("거래와 유효한 결제 수단은 필수입니다.");
+        }
+
+        TransactionsResponse transaction = transactionsMapper.findTransactionByIdForUserForUpdate(
+                request.getTransactionId(), actorEmail);
+        if (transaction == null) {
+            throw new NotFoundException("거래를 찾을 수 없습니다.");
+        }
+        if (!actorEmail.equals(transaction.getBuyerEmail())) {
+            throw new ForbiddenException("구매자만 결제할 수 있습니다.");
+        }
+        if (!"진행중".equals(transaction.getTransactionStatus())
+                || !"미완료".equals(transaction.getPaymentStatus())) {
+            throw new IllegalArgumentException("진행 중인 미결제 거래만 결제할 수 있습니다.");
+        }
+
+        long totalPaid = paymentsMapper.getTotalPaidByTransaction(request.getTransactionId());
+        long remaining = (long) transaction.getPrice() - totalPaid;
+        if (totalPaid < 0 || remaining <= 0) {
+            throw new IllegalArgumentException("결제 금액이 거래 금액을 초과했거나 이미 결제되었습니다.");
+        }
+
+        request.setAmount((int) remaining);
         paymentsMapper.insertPayment(request);
-
-        // 결제 상태 자동 업데이트
-        updatePaymentStatus(request.getTransactionId());
-
-
-        // 거래 상태도 자동 업데이트
-        transactionsService.updateTransactionStatusOnPayment(request.getTransactionId());
-
-        // 결제 내역 조회 후 반환 (결과가 없는 경우 예외 방지)
-        List<PaymentsResponse> payments = paymentsMapper.findPaymentsByTransaction(request.getTransactionId());
-        if (payments.isEmpty()) {
-            return ResponseEntity.badRequest().body(new BaseResponse<>(null, "결제 정보를 찾을 수 없습니다."));
+        if (transactionsMapper.completeTransaction(request.getTransactionId()) != 1) {
+            throw new IllegalStateException("거래 결제 상태를 저장하지 못했습니다.");
         }
 
-        return ResponseEntity.ok(new BaseResponse<>(payments.get(0), "결제가 성공적으로 처리되었습니다."));
-    }
-
-    /**
-     * 특정 거래의 결제 내역 조회
-     **/
-    public ResponseEntity<BaseResponse<List<PaymentsResponse>>> getPaymentsByTransaction(Long transactionId) {
-        List<PaymentsResponse> payments = paymentsMapper.findPaymentsByTransaction(transactionId);
-        return ResponseEntity.ok(new BaseResponse<>(payments));
-    }
-
-    /**
-     * 결제 완료 여부 확인 후 거래 상태 자동 변경
-     **/
-    // 결제 상태 자동 업데이트 메서드
-    private void updatePaymentStatus(Long transactionId) {
-        int totalPaid = paymentsMapper.getTotalPaidByTransaction(transactionId);
-        int transactionPrice = transactionsMapper.getTransactionPrice(transactionId);
-
-        if (totalPaid >= transactionPrice) {
-            transactionsMapper.updateTransactionStatusOnPayment(transactionId); // 여기서 "완료"로 업데이트됨!
+        PaymentsResponse payment = paymentsMapper.findPaymentById(request.getId());
+        if (payment == null) {
+            throw new IllegalStateException("생성된 결제 정보를 찾을 수 없습니다.");
         }
+        return ResponseEntity.ok(new BaseResponse<>(payment, "결제가 성공적으로 처리되었습니다."));
+    }
+
+    public ResponseEntity<BaseResponse<List<PaymentsResponse>>> getPaymentsByTransaction(
+            Long transactionId, String actorEmail) {
+        if (transactionsMapper.findTransactionByIdForUser(transactionId, actorEmail) == null) {
+            throw new NotFoundException("거래를 찾을 수 없습니다.");
+        }
+        return ResponseEntity.ok(new BaseResponse<>(
+                paymentsMapper.findPaymentsByTransaction(transactionId)));
     }
 }

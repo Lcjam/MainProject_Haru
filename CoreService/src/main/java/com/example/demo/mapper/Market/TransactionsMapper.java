@@ -11,7 +11,15 @@ import java.util.List;
 public interface TransactionsMapper {
     void insertTransaction(TransactionsRequest request);
     TransactionsResponse findTransactionById(@Param("id") Long id);
+    TransactionsResponse findTransactionByProductAndParticipants(
+            @Param("productId") Long productId,
+            @Param("buyerEmail") String buyerEmail,
+            @Param("sellerEmail") String sellerEmail);
+    TransactionsResponse findTransactionByIdForUser(
+            @Param("id") Long id, @Param("email") String email);
+    TransactionsResponse findTransactionByIdForUserForUpdate(
+            @Param("id") Long id, @Param("email") String email);
     List<TransactionsResponse> findTransactionsByUser(@Param("email") String email);
-    int getTransactionPrice(@Param("id") Long id);
-    void updateTransactionStatusOnPayment(@Param("transactionId") Long transactionId);
+    int completeTransaction(@Param("id") Long id);
+    int cancelTransaction(@Param("id") Long id);
 }

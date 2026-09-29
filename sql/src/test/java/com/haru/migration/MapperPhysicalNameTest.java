@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MapperPhysicalNameTest {
     private static final Pattern TABLE_REFERENCE = Pattern.compile(
             "(?i)\\b(FROM|JOIN|INTO|UPDATE|DELETE\\s+FROM)\\s+`?([A-Za-z_][A-Za-z0-9_]*)`?");
-    private static final Pattern DUPLICATE_KEY_PREFIX = Pattern.compile("(?is).*ON\\s+DUPLICATE\\s+KEY\\s*$");
+    private static final Pattern NON_TABLE_UPDATE_PREFIX = Pattern.compile("(?is).*(?:ON\\s+DUPLICATE\\s+KEY|\\bFOR)\\s*$");
     private static final Set<String> DIRECT_SQL_ANNOTATIONS = Set.of("Select", "Insert", "Update", "Delete");
 
     @Test
@@ -205,7 +205,7 @@ class MapperPhysicalNameTest {
         Matcher matcher = TABLE_REFERENCE.matcher(sql);
         while (matcher.find()) {
             if (matcher.group(1).equalsIgnoreCase("UPDATE") &&
-                    DUPLICATE_KEY_PREFIX.matcher(sql.substring(0, matcher.start())).matches()) continue;
+                    NON_TABLE_UPDATE_PREFIX.matcher(sql.substring(0, matcher.start())).matches()) continue;
             references.add(new TableReference(mapper, matcher.group(2)));
         }
     }

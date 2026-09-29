@@ -1,10 +1,12 @@
 package com.example.demo.controller.Market;
 
 import com.example.demo.dto.Market.LocationRequest;
+import com.example.demo.mapper.UserMapper;
+import com.example.demo.model.User;
 import com.example.demo.model.Market.UserLocation;
 import com.example.demo.service.Market.UserLocationService;
-import com.example.demo.security.JwtTokenProvider;
 import com.example.demo.util.BaseResponse;
+import com.example.demo.util.TokenUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,11 +14,13 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/core/market/users")
 public class UserLocationController {
     private final UserLocationService userLocationService;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final TokenUtils tokenUtils;
+    private final UserMapper userMapper;
 
-    public UserLocationController(UserLocationService userLocationService, JwtTokenProvider jwtTokenProvider) {
+    public UserLocationController(UserLocationService userLocationService, TokenUtils tokenUtils, UserMapper userMapper) {
         this.userLocationService = userLocationService;
-        this.jwtTokenProvider = jwtTokenProvider;
+        this.tokenUtils = tokenUtils;
+        this.userMapper = userMapper;
     }
 
     /**
@@ -24,19 +28,19 @@ public class UserLocationController {
      */
     @PostMapping("/location")
     public ResponseEntity<BaseResponse<String>> updateUserLocation(
-            @RequestBody LocationRequest request,
+            @RequestBody(required = false) LocationRequest request,
             @RequestHeader(value = "Authorization", required = false) String token) {
 
         // 토큰 검증
         if (token == null || !token.startsWith("Bearer ")) {
             return ResponseEntity.status(401).body(BaseResponse.error("토큰이 누락되었습니다. 인증이 필요합니다."));
         }
+        if (request == null) {
+            return ResponseEntity.badRequest().body(BaseResponse.error("위치 정보가 누락되었습니다."));
+        }
 
-        // JWT에서 이메일 추출
-        String email;
-        try {
-            email = jwtTokenProvider.getUsername(token);
-        } catch (Exception e) {
+        String email = activeEmail(token);
+        if (email == null) {
             return ResponseEntity.status(401).body(BaseResponse.error("유효하지 않은 토큰입니다."));
         }
 
@@ -47,7 +51,11 @@ public class UserLocationController {
         location.setLongitude(request.getLongitude());
         location.setLocationName(request.getLocationName());
 
-        userLocationService.updateUserLocation(location);
+        try {
+            userLocationService.updateUserLocation(location);
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(BaseResponse.error(exception.getMessage()));
+        }
 
         return ResponseEntity.ok(new BaseResponse<>("사용자 위치 업데이트 완료"));
     }
@@ -64,11 +72,8 @@ public class UserLocationController {
             return ResponseEntity.status(401).body(BaseResponse.error("토큰이 누락되었습니다. 인증이 필요합니다."));
         }
 
-        // JWT에서 이메일 추출
-        String email;
-        try {
-            email = jwtTokenProvider.getUsername(token);
-        } catch (Exception e) {
+        String email = activeEmail(token);
+        if (email == null) {
             return ResponseEntity.status(401).body(BaseResponse.error("유효하지 않은 토큰입니다."));
         }
 
@@ -81,5 +86,11 @@ public class UserLocationController {
         }
 
         return ResponseEntity.ok(new BaseResponse<>(latestLocation, "사용자의 최신 위치 조회 완료"));
+    }
+
+    private String activeEmail(String token) {
+        String email = tokenUtils.getEmailFromAuthHeader(token);
+        User user = email == null ? null : userMapper.findByEmail(email);
+        return user != null && "Active".equals(user.getAccountStatus()) ? email : null;
     }
 }

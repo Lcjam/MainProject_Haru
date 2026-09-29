@@ -14,6 +14,7 @@ import com.example.demo.exception.ForbiddenException;
 import com.example.demo.exception.NotFoundException;
 import com.example.demo.model.Market.Product;
 import com.example.demo.model.Market.ProductImage;
+import com.example.demo.model.Market.UserLocation;
 import com.example.demo.model.chat.ChatRoom;
 import com.example.demo.service.ChatService;
 import com.example.demo.service.NotificationService;
@@ -438,8 +439,12 @@ public class ProductService {
             int distance,
             String email) {
 
-        Double latitude = userLocationMapper.getUserLatestLocation(email).getLatitude();
-        Double longitude = userLocationMapper.getUserLatestLocation(email).getLongitude();
+        UserLocation userLocation = userLocationMapper.getUserLatestLocation(email);
+        if (userLocation == null) {
+            return ResponseEntity.badRequest().body(BaseResponse.error("위치 정보가 없습니다."));
+        }
+        Double latitude = userLocation.getLatitude();
+        Double longitude = userLocation.getLongitude();
 
         // 디버그 확인
         log.debug("Received - latitude: " + latitude + ", longitude: " + longitude + ", distance: " + distance);

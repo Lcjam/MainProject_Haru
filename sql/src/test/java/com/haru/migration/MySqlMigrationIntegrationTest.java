@@ -85,17 +85,17 @@ class MySqlMigrationIntegrationTest {
     }
 
     @Test
-    void emptyInitReachesV1AndRerunIsSafe() throws Exception {
+    void emptyInitReachesV2AndRerunIsSafe() throws Exception {
         withDatabase(database -> {
             assertEquals(0, serverScalar("SELECT @@lower_case_table_names"));
             boolean haruDbBefore = databaseExists("haru_db");
             String result = runner(sqlDirectory(), "init", database, 10, null).run();
-            assertTrue(result.contains("version 1"));
-            assertEquals(28, baseTableCount(database));
-            assertEquals(2, historyCount(database));
+            assertTrue(result.contains("version 2"));
+            assertEquals(29, baseTableCount(database));
+            assertEquals(3, historyCount(database));
             assertThrows(IllegalStateException.class, () -> runner(sqlDirectory(), "init", database, 10, null).run());
             runner(sqlDirectory(), "migrate", database, 10, null).run();
-            assertEquals(2, historyCount(database));
+            assertEquals(3, historyCount(database));
             assertEquals(haruDbBefore, databaseExists("haru_db"), "schema.sql must not create its hard-coded database");
         });
     }
@@ -112,6 +112,7 @@ class MySqlMigrationIntegrationTest {
             runner(sqlDirectory(), "migrate", database, 10, null).run();
             assertEquals(1, scalar(database, "SELECT COUNT(*) FROM `Users` WHERE email='preserved@example.test'"));
             assertEquals("SUCCESS", historyStatus(database, "1"));
+            assertEquals("SUCCESS", historyStatus(database, "2"));
         });
     }
 
@@ -125,7 +126,7 @@ class MySqlMigrationIntegrationTest {
             assertEquals("ADOPTED", historyStatus(database, "0"));
             assertEquals("ADOPTED", historyStatus(database, "1"));
             runner(sqlDirectory(), "migrate", database, 10, null).run();
-            assertEquals(2, historyCount(database));
+            assertEquals(3, historyCount(database));
         });
     }
 
@@ -290,7 +291,7 @@ class MySqlMigrationIntegrationTest {
         });
         withDatabase(database -> {
             runner(sqlDirectory(), "init", database, 10, null).run();
-            executeIn(database, "UPDATE `haru_schema_history` SET installed_rank=3 WHERE version='0'");
+            executeIn(database, "UPDATE `haru_schema_history` SET installed_rank=4 WHERE version='0'");
             assertThrows(IllegalStateException.class, () -> runner(sqlDirectory(), "migrate", database, 10, null).run());
         });
         withDatabase(database -> {

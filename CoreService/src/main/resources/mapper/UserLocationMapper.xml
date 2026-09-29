@@ -6,7 +6,7 @@
 
     <!-- 사용자 위치 저장 또는 업데이트 -->
     <insert id="insertOrUpdateUserLocation">
-        INSERT INTO UserLocation (email, location_name, latitude, longitude, recorded_at)
+        INSERT INTO UserLocationLatest (email, location_name, latitude, longitude, recorded_at)
         VALUES (#{email}, #{locationName}, #{latitude}, #{longitude}, NOW())
         ON DUPLICATE KEY UPDATE
                              location_name = VALUES(location_name),
@@ -17,15 +17,27 @@
 
     <!-- 사용자 최신 위치 조회 -->
     <select id="getUserLatestLocation" resultType="UserLocation">
-        SELECT *
+        SELECT id, email, location_name, latitude, longitude, recorded_at
+        FROM UserLocationLatest
+        WHERE email = #{email}
+          AND recorded_at >= NOW() - INTERVAL 14 DAY
+        UNION ALL
+        SELECT id, email, location_name, latitude, longitude, recorded_at
         FROM UserLocation
         WHERE email = #{email}
-        ORDER BY recorded_at DESC
+          AND recorded_at >= NOW() - INTERVAL 14 DAY
+          AND NOT EXISTS (SELECT 1 FROM UserLocationLatest WHERE email = #{email})
+        ORDER BY recorded_at DESC, id DESC
         LIMIT 1
     </select>
 
     <!-- 14일 이상 지난 위치 데이터 자동 삭제 -->
     <delete id="deleteOldUserLocations">
+        DELETE FROM UserLocationLatest
+        WHERE recorded_at &lt; NOW() - INTERVAL 14 DAY;
+    </delete>
+
+    <delete id="deleteLegacyOldUserLocations">
         DELETE FROM UserLocation
         WHERE recorded_at &lt; NOW() - INTERVAL 14 DAY;
     </delete>

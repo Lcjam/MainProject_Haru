@@ -15,22 +15,23 @@
 
     <!-- 채팅방의 최근 위치 정보 조회 -->
     <select id="getRecentLocations" resultMap="locationResultMap">
-        SELECT 
-            l.*,
-            u.nickname as user_nickname
-        FROM 
-            locations l
-            JOIN Users u ON l.email = u.email
-        WHERE 
-            l.chatroom_id = #{chatroomId}
-            AND l.timestamp >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-        GROUP BY 
-            l.email, l.location_id, l.chatroom_id, l.latitude, l.longitude,
-            l.timestamp, l.created_at, l.updated_at, u.nickname
-        HAVING 
-            l.timestamp = MAX(l.timestamp)
-        ORDER BY 
-            l.timestamp DESC
+        SELECT latest.*, u.nickname AS user_nickname
+        FROM (
+            SELECT l.*,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY l.email
+                       ORDER BY l.timestamp DESC, l.location_id DESC
+                   ) AS rn
+            FROM locations l
+            JOIN chatrooms cr ON cr.chatroom_id = l.chatroom_id
+            JOIN Products p ON p.id = cr.product_id
+            WHERE l.chatroom_id = #{chatroomId}
+              AND l.timestamp >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+              AND (l.email = cr.request_email OR l.email = p.email)
+        ) latest
+        JOIN Users u ON u.email = latest.email
+        WHERE latest.rn = 1
+        ORDER BY latest.timestamp DESC, latest.location_id DESC
     </select>
 
     <!-- 특정 사용자의 마지막 위치 조회 -->
@@ -45,7 +46,7 @@
             l.chatroom_id = #{chatroomId}
             AND l.email = #{email}
         ORDER BY 
-            l.timestamp DESC
+            l.timestamp DESC, l.location_id DESC
         LIMIT 1
     </select>
 

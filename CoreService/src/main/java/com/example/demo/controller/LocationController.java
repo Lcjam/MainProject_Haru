@@ -2,21 +2,21 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.response.ApiResponse;
 import com.example.demo.model.Location;
+import com.example.demo.model.User;
 import com.example.demo.service.LocationService;
+import com.example.demo.service.NotificationService;
 import com.example.demo.util.TokenUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
-import com.example.demo.service.NotificationService;
-import com.example.demo.model.User;
 
 import java.security.Principal;
-import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/core/location")
@@ -36,6 +36,7 @@ public class LocationController {
      */
     @MessageMapping("/location/{chatroomId}")
     public void handleLocationUpdate(
+            @DestinationVariable Integer chatroomId,
             @Payload Location location,
             SimpMessageHeaderAccessor headerAccessor,
             Principal principal) {
@@ -47,18 +48,20 @@ public class LocationController {
 
         String senderEmail = principal.getName();
         log.info("위치 업데이트 수신: chatroomId={}, senderEmail={}, location={}", 
-                location.getChatroomId(), senderEmail, location);
+                chatroomId, senderEmail, location);
         
 
         try {
+            if (chatroomId == null || location == null || !chatroomId.equals(location.getChatroomId())) {
+                throw new IllegalArgumentException("목적지와 위치 정보의 채팅방이 일치하지 않습니다.");
+            }
             // 위치 정보 저장
             location.setEmail(senderEmail);
-            location.setTimestamp(LocalDateTime.now());
             locationService.saveLocation(location);
 
             // 위치 정보를 채팅방의 모든 구독자에게 브로드캐스트
             messagingTemplate.convertAndSend(
-                "/topic/location." + location.getChatroomId(),
+                "/topic/location." + chatroomId,
                 location
             );
             User sender = locationService.findUserByEmail(senderEmail);
@@ -70,12 +73,12 @@ public class LocationController {
                 senderEmail,
                 message,
                 "LOCATION_SHARE",
-                location.getChatroomId(),
+                chatroomId,
                 0L
             );
 
             log.info("위치 정보 발행 완료: chatroomId={}, email={}", 
-                    location.getChatroomId(), senderEmail);
+                    chatroomId, senderEmail);
         } catch (Exception e) {
             log.error("위치 정보 처리 중 오류 발생: {}", e.getMessage());
         }
@@ -87,7 +90,7 @@ public class LocationController {
      */
     @GetMapping("/rooms/{chatroomId}/recent")
     public ResponseEntity<ApiResponse<?>> getRecentLocations(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader(value = "Authorization", required = false) String token,
             @PathVariable Integer chatroomId) {
         
         String email = tokenUtils.getEmailFromAuthHeader(token);
@@ -97,14 +100,8 @@ public class LocationController {
                     .body(ApiResponse.error("인증되지 않은 요청입니다.", "401"));
         }
         
-        try {
-            var locations = locationService.getRecentLocations(chatroomId);
-            return ResponseEntity.ok(ApiResponse.success(locations));
-        } catch (Exception e) {
-            log.error("위치 정보 조회 중 오류 발생: {}", e.getMessage());
-            return ResponseEntity.status(500)
-                    .body(ApiResponse.error("서버 오류가 발생했습니다.", "500"));
-        }
+        var locations = locationService.getRecentLocations(chatroomId, email);
+        return ResponseEntity.ok(ApiResponse.success(locations));
     }
 
     /**
@@ -112,7 +109,7 @@ public class LocationController {
      */
     @GetMapping("/rooms/{chatroomId}/users/{email}/last")
     public ResponseEntity<ApiResponse<?>> getLastLocation(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader(value = "Authorization", required = false) String token,
             @PathVariable Integer chatroomId,
             @PathVariable String email) {
         
@@ -123,13 +120,7 @@ public class LocationController {
                     .body(ApiResponse.error("인증되지 않은 요청입니다.", "401"));
         }
         
-        try {
-            var location = locationService.getLastLocation(chatroomId, email);
-            return ResponseEntity.ok(ApiResponse.success(location));
-        } catch (Exception e) {
-            log.error("위치 정보 조회 중 오류 발생: {}", e.getMessage());
-            return ResponseEntity.status(500)
-                    .body(ApiResponse.error("서버 오류가 발생했습니다.", "500"));
-        }
+        var location = locationService.getLastLocation(chatroomId, email, requestEmail);
+        return ResponseEntity.ok(ApiResponse.success(location));
     }
 }

@@ -22,6 +22,9 @@ public class UserLocationService {
      * 사용자의 위치 정보를 저장하거나 업데이트
      */
     public void updateUserLocation(UserLocation location) {
+        if (location == null || !validLatitude(location.getLatitude()) || !validLongitude(location.getLongitude())) {
+            throw new IllegalArgumentException("위도 또는 경도 값이 올바르지 않습니다.");
+        }
         userLocationMapper.insertOrUpdateUserLocation(location);
     }
 
@@ -39,6 +42,15 @@ public class UserLocationService {
     @Scheduled(cron = "0 0 3 * * ?") // 매일 새벽 3시 실행
     public void deleteOldUserLocations() {
         userLocationMapper.deleteOldUserLocations();
+        userLocationMapper.deleteLegacyOldUserLocations();
         log.debug("14일 이상 된 사용자 위치 데이터 삭제 완료!");
+    }
+
+    private boolean validLatitude(Double latitude) {
+        return latitude != null && Double.isFinite(latitude) && latitude >= -90 && latitude <= 90;
+    }
+
+    private boolean validLongitude(Double longitude) {
+        return longitude != null && Double.isFinite(longitude) && longitude >= -180 && longitude <= 180;
     }
 }

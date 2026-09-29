@@ -11,6 +11,6 @@ import lombok.*;
 @NoArgsConstructor
 public class LocationRequest {
     private String locationName; // 지역 이름
-    private double latitude;  // 위도
-    private double longitude; // 경도
+    private Double latitude;  // 위도
+    private Double longitude; // 경도
 }

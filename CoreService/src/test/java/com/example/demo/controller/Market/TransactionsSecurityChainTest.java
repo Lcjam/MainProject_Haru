@@ -62,15 +62,15 @@ class TransactionsSecurityChainTest {
 
         mockMvc.perform(get("/api/core/market/transactions/user"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("401"));
+                .andExpect(jsonPath("$.code").value("AUTH_REQUIRED"));
         mockMvc.perform(get("/api/core/market/transactions/user")
                         .header("Authorization", "Bearer " + forged))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("401"));
+                .andExpect(jsonPath("$.code").value("AUTH_INVALID"));
         mockMvc.perform(get("/api/core/market/transactions/user")
                         .header("Authorization", "Bearer " + expired))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("401"));
+                .andExpect(jsonPath("$.code").value("AUTH_EXPIRED"));
 
         verifyNoInteractions(transactionsService, paymentsService);
     }

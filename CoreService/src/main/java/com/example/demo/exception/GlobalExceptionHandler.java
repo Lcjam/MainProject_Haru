@@ -24,35 +24,35 @@ public class GlobalExceptionHandler {
         FieldError fieldError = ex.getBindingResult().getFieldError();
         String message = fieldError != null ? fieldError.getDefaultMessage() : "잘못된 요청입니다.";
         log.debug("검증 실패: {}", message);
-        return ResponseEntity.badRequest().body(ApiResponse.error(message, "400"));
+        return ResponseEntity.badRequest().body(ApiResponse.error(message, "BAD_REQUEST"));
     }
 
     /** 인증 실패(유효하지 않은/누락된 토큰) → 401 */
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ApiResponse<String>> handleUnauthorized(UnauthorizedException ex) {
         log.debug("인증 실패: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(ex.getMessage(), "401"));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(ex.getMessage(), "AUTH_REQUIRED"));
     }
 
     /** 자원 없음 → 404 */
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ApiResponse<String>> handleNotFound(NotFoundException ex) {
         log.debug("자원 없음: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage(), "404"));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage(), "NOT_FOUND"));
     }
 
     /** 권한 없음 → 403 */
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<ApiResponse<String>> handleForbidden(ForbiddenException ex) {
         log.debug("권한 없음: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(ex.getMessage(), "403"));
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(ex.getMessage(), "FORBIDDEN"));
     }
 
     /** 잘못된 인자 → 400 */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<String>> handleIllegalArgument(IllegalArgumentException ex) {
         log.debug("잘못된 인자: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage(), "400"));
+        return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage(), "BAD_REQUEST"));
     }
 
     /** 그 외 미처리 예외 → 500 (스택은 로깅, 본문엔 일반 메시지) */
@@ -60,6 +60,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<String>> handleGeneric(Exception ex) {
         log.error("처리되지 않은 예외", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("서버 오류가 발생했습니다.", "500"));
+                .body(ApiResponse.error("서버 오류가 발생했습니다.", "INTERNAL_ERROR"));
     }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat } from '../../../services/real-time/useChat';
 import { MessageType, IChatMessage } from '../../../services/real-time/types';
+import AuthenticatedChatImage from './AuthenticatedChatImage';
 
 interface SimpleChatExampleProps {
   chatroomId: number;
@@ -15,7 +16,7 @@ const SimpleChatExample: React.FC<SimpleChatExampleProps> = ({
 }) => {
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   // 채팅 훅 사용
   const { messages, sendMessage, isConnected, connect } = useChat({
     chatroomId,
@@ -94,7 +95,7 @@ const SimpleChatExample: React.FC<SimpleChatExampleProps> = ({
                 }`}
               >
                 {msg.messageType === MessageType.IMAGE ? (
-                  <img src={msg.content} alt="채팅 이미지" className="max-w-[200px]" />
+                  <AuthenticatedChatImage path={msg.content} className="max-w-[200px]" />
                 ) : (
                   <p>{msg.content}</p>
                 )}
@@ -153,4 +154,4 @@ const SimpleChatExample: React.FC<SimpleChatExampleProps> = ({
   );
 };
 
-export default SimpleChatExample; 
+export default SimpleChatExample;

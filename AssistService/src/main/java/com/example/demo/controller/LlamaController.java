@@ -33,23 +33,29 @@ public class LlamaController {
 
     @Operation(summary = "AI 챗봇과 대화")
     @PostMapping("/chat")
-    public ResponseEntity<ChatResponseDTO> chat(@RequestBody ChatRequestDTO request, @RequestHeader("Authorization") String token) {
+    public ResponseEntity<ChatResponseDTO> chat(@RequestBody ChatRequestDTO request,
+            @RequestHeader(value = "Authorization", required = false) String token) {
         try {
+            String authCode = tokenUtils.authenticationErrorCode(token);
+            if (authCode != null) {
+                String message = authCode.equals("AUTH_EXPIRED") ? "인증이 만료되었습니다."
+                        : authCode.equals("AUTH_REQUIRED") ? "로그인이 필요합니다." : "유효하지 않은 인증입니다.";
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ChatResponseDTO("error", message, authCode));
+            }
             if (request.getMessage() == null || request.getMessage().trim().isEmpty()) {
                 return ResponseEntity.badRequest()
-                    .body(new ChatResponseDTO("error", "메시지 내용이 비어있습니다.", "400"));
+                    .body(new ChatResponseDTO("error", "메시지 내용이 비어있습니다.", "BAD_REQUEST"));
             }
             
             log.debug("=== 채팅 요청 수신 ===");
-            log.debug("수신된 토큰: " + token);
 
             // 토큰에서 이메일 추출 (Bearer 제거)
-            String userEmail = tokenUtils.getEmailFromToken(tokenUtils.extractTokenWithoutBearer(token));
+            String userEmail = tokenUtils.getEmailFromToken(token);
             
-            log.debug("추출된 이메일: " + userEmail);
             if (userEmail == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ChatResponseDTO("error", "유효하지 않은 토큰입니다.", "401"));
+                    .body(new ChatResponseDTO("error", "유효하지 않은 인증입니다.", "AUTH_INVALID"));
             }
 
             String message = request.getMessage();
@@ -74,21 +80,21 @@ public class LlamaController {
             return ResponseEntity.ok(responseDTO);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("채팅 인증/처리 중 오류: {}", e.getClass().getSimpleName());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ChatResponseDTO("error", "서버 처리 중 오류가 발생했습니다.", "500"));
+                .body(new ChatResponseDTO("error", "서버 처리 중 오류가 발생했습니다.", "INTERNAL_ERROR"));
         }
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ChatResponseDTO> handleException(Exception e) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(new ChatResponseDTO("error", "예상치 못한 오류가 발생했습니다.", "500"));
+            .body(new ChatResponseDTO("error", "예상치 못한 오류가 발생했습니다.", "INTERNAL_ERROR"));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ChatResponseDTO> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(new ChatResponseDTO("error", "잘못된 요청 형식입니다.", "400"));
+            .body(new ChatResponseDTO("error", "잘못된 요청 형식입니다.", "BAD_REQUEST"));
     }
 }

@@ -1,63 +1,44 @@
 package com.example.demo.controller.board;
 
+import com.example.demo.mapper.board.BoardTempImageMapper;
+import com.example.demo.service.BoardImageAccess;
+import com.example.demo.service.FileStorageService;
+import com.example.demo.util.TokenUtils;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 @RestController
 @RequestMapping("/api/core/boards/images")
 @RequiredArgsConstructor
-@Slf4j
 public class PostImageViewerController {
+    private final FileStorageService files;
+    private final TokenUtils tokens;
+    private final BoardImageAccess access;
+    private final BoardTempImageMapper images;
 
-    /**
-     * 게시글 이미지 조회
-     */
     @GetMapping("/{boardId}/{fileType}/{fileName:.+}")
     public ResponseEntity<Resource> getImage(
-            @PathVariable Long boardId,
-            @PathVariable String fileType,
-            @PathVariable String fileName) {
-        
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long boardId, @PathVariable String fileType, @PathVariable String fileName) {
+        String email = tokens.getEmailFromAuthHeader(authorization);
+        if (email == null) return ResponseEntity.status(401).build();
+        if (!"image".equals(fileType) || !access.canRead(boardId, email)
+                || images.findUploader(boardId, fileName) == null) return ResponseEntity.notFound().build();
         try {
-            // 이미지 파일 경로 생성
-            String imagePath = "board-files/board_" + boardId + "/" + fileType + "/" + fileName;
-            Path filePath = Paths.get(System.getProperty("user.dir") + "/src/main/resources/static/" + imagePath);
-            
-            // 파일이 존재하는지 확인
-            if (!Files.exists(filePath)) {
-                log.error("이미지 파일을 찾을 수 없음: {}", imagePath);
-                return ResponseEntity.notFound().build();
-            }
-            
-            // 리소스 생성
-            Resource resource = new UrlResource(filePath.toUri());
-            
-            // MIME 타입 감지
-            String contentType = Files.probeContentType(filePath);
-            if (contentType == null) {
-                contentType = "application/octet-stream";
-            }
-            
-            // 이미지 직접 반환
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
+            Path path = files.resolveStoredPath("/board-files/board_" + boardId + "/image/" + fileName);
+            if (!Files.isRegularFile(path) || !Files.isReadable(path)) return ResponseEntity.notFound().build();
+            Resource resource = new UrlResource(path.toUri());
+            return ResponseEntity.ok().contentType(MediaType.parseMediaType(Files.probeContentType(path)))
                     .body(resource);
-            
-        } catch (IOException e) {
-            log.error("이미지 조회 중 오류 발생: {}", e.getMessage());
-            return ResponseEntity.internalServerError().build();
+        } catch (Exception exception) {
+            return ResponseEntity.notFound().build();
         }
     }
 }

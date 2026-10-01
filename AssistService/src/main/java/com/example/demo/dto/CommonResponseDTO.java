@@ -13,6 +13,7 @@ public class CommonResponseDTO<T> {
     private String status;
     private Data<T> data;
     private String code;
+    private String message;
 
     @Getter
     @Builder

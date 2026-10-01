@@ -34,7 +34,6 @@ public class CloudOCRServiceImpl {
                 throw new IllegalArgumentException("지원하지 않는 파일 형식: " + fileFormat);
             }
             log.info("=== 파일 정보 ===");
-            log.info("파일명: {}", file.getOriginalFilename());
             log.info("파일 크기: {} bytes", file.getSize());
             log.info("파일 형식: {}", fileFormat);
 
@@ -79,31 +78,19 @@ public class CloudOCRServiceImpl {
                 log.info("OCR 요청 성공");
                 JsonNode responseJson = objectMapper.readTree(response.getBody());
                 
-                log.info("=== OCR 응답 정보 ===");
                 JsonNode images = responseJson.path("images");
                 if (images.isArray() && images.size() > 0) {
                     JsonNode image = images.get(0);
                     log.info("인식 결과: {}", image.path("inferResult").asText());
-                    log.info("메시지: {}", image.path("message").asText());
                     log.info("matchedTemplate.id : {}", image.path("matchedTemplate.id").asText());
-                    log.info("combineResult: {}", image.path("combineResult").asText());
-                    log.info("combineResult.text: {}", image.path("combineResult.text").asText());
-                    log.info("combineResult.name: {}", image.path("combineResult.name").asText());
-                    log.info("name: {}", image.path("name").asText());
 
                     JsonNode fields = image.path("fields");
                     if (fields.isArray()) {
                         log.info("추출된 필드 수: {}", fields.size());
-                        for (JsonNode field : fields) {
-                            log.info("텍스트: {} (신뢰도: {})", 
-                                field.path("inferText").asText(),
-                                field.path("inferConfidence").floatValue());
-                        }
                     }
                 }
                 
                 String extractedText = extractText(responseJson);
-                log.info("=== 최종 추출 텍스트 ===\n{}", extractedText);
                 return extractedText;
             }
 
@@ -111,8 +98,8 @@ public class CloudOCRServiceImpl {
             throw new RuntimeException("OCR 서버 응답 오류: " + response.getStatusCode());
 
         } catch (Exception e) {
-            log.error("OCR 처리 중 오류 발생", e);
-            throw new RuntimeException("OCR 서비스 오류: " + e.getMessage());
+            log.error("OCR 처리 중 오류: {}", e.getClass().getSimpleName());
+            throw new RuntimeException("OCR 서비스 오류", e);
         }
     }
 
@@ -122,14 +109,10 @@ public class CloudOCRServiceImpl {
     
         if (images.isArray()) {
             for (JsonNode image : images) {
-                log.info("=== OCR 개별 이미지 응답 ===");
-                log.info("이미지 UID: {}", image.path("uid").asText());
                 log.info("인식 결과: {}", image.path("inferResult").asText());
-                log.info("메시지: {}", image.path("message").asText());
-                log.info("matchedTemplate : {}", image.path("matchedTemplate").asText());
     
                 if (!"SUCCESS".equals(image.path("inferResult").asText())) {
-                    log.warn("OCR 인식 실패: {}", image.path("message").asText());
+                    log.warn("OCR 인식 실패");
                     continue;
                 }
     
@@ -138,8 +121,6 @@ public class CloudOCRServiceImpl {
                     log.info("추출된 필드 개수: {}", fields.size());
                     for (JsonNode field : fields) {
                         String text = field.path("inferText").asText();
-                        float confidence = field.path("inferConfidence").floatValue();
-                        log.info("추출된 텍스트: {} (신뢰도: {})", text, confidence);
                         result.append(text).append(" ");
                     }
                 } else {
@@ -150,8 +131,6 @@ public class CloudOCRServiceImpl {
             log.warn("OCR 응답에서 images 배열이 존재하지 않습니다.");
         }
     
-        log.info("=== 최종 추출된 텍스트 ===");
-        log.info(result.toString());
         return result.toString().trim();
     }
     

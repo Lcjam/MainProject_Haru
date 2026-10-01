@@ -13,7 +13,10 @@ import com.example.demo.util.TokenUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
@@ -22,6 +25,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @RestController
 @RequestMapping("/api/core/chat")
@@ -217,9 +222,32 @@ public class ChatMessageController {
         try {
             ChatMessage message = chatMessageService.sendImageMessage(email, chatroomId, image);
             return ResponseEntity.ok(ApiResponse.success(message));
+        } catch (IllegalArgumentException e) {
+            log.warn("이미지 메시지 전송 실패: {}", e.getClass().getSimpleName());
+            return ResponseEntity.badRequest().body(ApiResponse.error("이미지 메시지 전송에 실패했습니다.", "BAD_REQUEST"));
         } catch (Exception e) {
-            log.error("이미지 메시지 전송 실패: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(ApiResponse.error("이미지 메시지 전송 실패: " + e.getMessage(), "400"));
+            log.error("이미지 메시지 저장 실패: {}", e.getClass().getSimpleName());
+            return ResponseEntity.status(500).body(ApiResponse.error("이미지 메시지를 저장하지 못했습니다.", "INTERNAL_ERROR"));
+        }
+    }
+
+    @GetMapping("/images/{chatroomId}/{fileId:.+}")
+    public ResponseEntity<Resource> getChatImage(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Integer chatroomId, @PathVariable String fileId) {
+        String email = tokenUtils.getEmailFromAuthHeader(authorization);
+        if (email == null) return ResponseEntity.status(401).build();
+        try {
+            Path path = chatMessageService.getChatImagePath(chatroomId, email, fileId);
+            if (!Files.isRegularFile(path) || !Files.isReadable(path)) return ResponseEntity.notFound().build();
+            String type = Files.probeContentType(path);
+            if (type == null || !type.startsWith("image/")) return ResponseEntity.notFound().build();
+            Resource resource = new UrlResource(path.toUri());
+            return ResponseEntity.ok().contentType(MediaType.parseMediaType(type))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileId + "\"")
+                    .body(resource);
+        } catch (Exception exception) {
+            return ResponseEntity.notFound().build();
         }
     }
 }

@@ -84,7 +84,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
     (response) => {
       const apiResponse = response.data as ApiResponse;
       if (apiResponse.status === 'error') {
-        return Promise.reject(new Error(apiResponse.message));
+        return Promise.reject(new Error(apiResponse.message || '요청을 처리하지 못했습니다.'));
       }
       return response;
     },
@@ -94,13 +94,11 @@ const setupInterceptors = (instance: AxiosInstance) => {
         
         switch (error.response.status) {
           case 401:
-            // 토큰이 완전히 만료된 경우에만 로그아웃 처리
-            if (error.response.data?.message?.includes('만료')) {
+            // 인증 오류 코드는 Gateway/Core/Assist가 공유한다.
+            if (['AUTH_EXPIRED', 'AUTH_INVALID'].includes(error.response.data?.code)) {
               store.dispatch(logout());
-              localStorage.removeItem('token');
-              showErrorToast('인증이 만료되었습니다. 다시 로그인해주세요.');
+              showErrorToast('인증이 유효하지 않습니다. 다시 로그인해주세요.');
             } else {
-              // 다른 401 에러의 경우 메시지만 표시
               console.log(error.response.data?.message || '인증 오류가 발생했습니다.');
             }
             break;
@@ -135,4 +133,3 @@ const setupInterceptors = (instance: AxiosInstance) => {
 // 일반 인터셉터 적용
 setupInterceptors(axiosInstance);
 setupInterceptors(uploadInstance);
-

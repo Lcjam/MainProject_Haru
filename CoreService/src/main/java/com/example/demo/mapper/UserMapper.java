@@ -4,6 +4,7 @@ import com.example.demo.model.User;
 import com.example.demo.model.UserAccountInfo;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.springframework.stereotype.Repository;
 
 @Mapper
@@ -63,6 +64,9 @@ public interface UserMapper {
 
     // 프로필 이미지 경로 업데이트
     int updateProfileImagePath(@Param("email") String email, @Param("profileImagePath") String profileImagePath);
+
+    @Select("SELECT COUNT(*) FROM Users WHERE profile_image_path = #{fileId} AND account_status = 'Active'")
+    int countActiveProfilesByImage(@Param("fileId") String fileId);
 
     /**
      * 사용자의 도파민 수치 조회

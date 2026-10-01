@@ -37,7 +37,7 @@ class ChatMessageServiceTest {
 
     private final ChatMessageService chatMessageService = new ChatMessageService(
             chatMessageMapper, chatRoomMapper, productMapper, productRequestMapper,
-            userMapper, redisTemplate, chatChannelTopic);
+            userMapper, redisTemplate, mock(FileStorageService.class), chatChannelTopic);
 
     @Test
     @DisplayName("findUserByEmail: UserMapper.findByEmail 를 그대로 위임한다")

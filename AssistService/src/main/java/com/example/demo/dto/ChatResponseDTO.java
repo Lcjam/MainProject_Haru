@@ -11,12 +11,14 @@ public class ChatResponseDTO {
     private String status;
     private Data data;
     private String code;
+    private String message;
 
     public ChatResponseDTO(String status, String errorMessage, String code) {
         this.status = status;
         this.data = new Data();
         this.data.setResponse(errorMessage);
         this.code = code;
+        this.message = errorMessage;
     }
 
     @lombok.Data
@@ -27,4 +29,3 @@ public class ChatResponseDTO {
         private String response;
     }
 }
-

@@ -15,6 +15,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.NullSecurityContextRepository;
+import jakarta.servlet.DispatcherType;
+import org.springframework.http.HttpMethod;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
@@ -31,64 +34,26 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable()) // CSRF 비활성화
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션 사용
-                                                                                                              // 안함
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .securityContext(context -> context.securityContextRepository(new NullSecurityContextRepository()))
                 .exceptionHandling(
                         exceptionHandling -> exceptionHandling.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                // 정적 리소스 허용
-                                "/profile-images/**",
-                                "/chat-images/**",
-                                "/uploads/**",
-                                "/board-files/**", // 게시판 이미지 접근 허용
-                                // 인증 없이 접근 가능한 엔드포인트
-                                "/api/core/auth/signup",
-                                "/api/core/auth/login",
-                                "/api/core/auth/logout",
-                                "/api/core/hobbies",
-                                "/api/core/hobbies/simple",
-                                "/api/core/hobbies/categories",
-                                "/api/core/hobbies/*/categories",
-                                "/api/core/hobbies/categories/*",
-                                "/api/core/profiles/user/*",
-                                "/api/core/market/*",
-                                "/api/core/market/products/requests/approved",
-                                "/api/core/market/products/all",
-                                "/api/core/market/products/all/filter",
-                                "/api/core/market/products/images/**",
-                                "/api/core/market/products/{id}",
-                                // WebSocket 관련 허용
-                                "/ws",
-                                "/ws/**",
-                                "/ws/redis/**",
-                                "/topic/**",
-                                "/topic/user/**",
-                                "/app/**",
-                                // 채팅 관련 API
-                                "/api/core/chat/**",
-                                "/api/core/chat/rooms/**",
-                                "/api/core/chat/rooms/{chatroomId}/read",
-                                "/api/core/chat/rooms/{chatroomId}/approve",
-                                "/api/core/chat/messages/**",
-                                "/api/core/boards/{boardId}/members", // 게시판 멤버 조회 API 추가                        
-                                "/api/core/market/products/requests/approval-status"
-                        ).permitAll()
-                        // 관리자 전용 API
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/core/auth/signup", "/api/core/auth/login",
+                                "/api/core/auth/oauth2/exchange", "/api/core/market/products/all/filter")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/core/auth/oauth2/**", "/api/core/hobbies",
+                                "/api/core/hobbies/simple", "/api/core/hobbies/categories",
+                                "/api/core/hobbies/categories/*", "/api/core/profiles/user/*",
+                                "/api/core/profiles/image/**", "/api/core/market/products/all",
+                                "/api/core/market/products/{id:[0-9]+}", "/api/core/market/products/images/**",
+                                "/ws", "/ws/**")
+                        .permitAll()
                         .requestMatchers("/api/core/profiles/admin/**").hasRole("ADMIN")
-                        // 인증이 필요한 엔드포인트
-                        .requestMatchers(
-                                "/api/core/auth/me/password",
-                                "/api/core/market/products/registers",
-                                "/api/core/market/products/requests",
-                                "/api/core/market/products/requests/approve",
-                                "/api/core/market/products/users/**",
-                                "/api/core/market/products/nearby",
-                                "/api/core/market/transactions",
-                                "/api/core/market/transactions/**",
-                                "/api/core/market/payments",
-                                "/api/core/market/payments/**")
-                        .authenticated()
                         .anyRequest().authenticated())
                 // JWT 필터 추가
                 .addFilterBefore(

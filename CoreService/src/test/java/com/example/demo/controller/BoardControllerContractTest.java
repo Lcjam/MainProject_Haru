@@ -55,7 +55,7 @@ class BoardControllerContractTest {
         mockMvc.perform(get("/api/core/boards/{boardId}", 1).header("Authorization", "Bearer bad"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value("error"))
-                .andExpect(jsonPath("$.code").value("401"))
+                .andExpect(jsonPath("$.code").value("AUTH_REQUIRED"))
                 .andExpect(jsonPath("$.data").value("인증되지 않은 요청입니다."));
     }
 
@@ -69,7 +69,7 @@ class BoardControllerContractTest {
         mockMvc.perform(get("/api/core/boards/{boardId}", 999).header("Authorization", "Bearer ok"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value("error"))
-                .andExpect(jsonPath("$.code").value("400"))
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
                 .andExpect(jsonPath("$.data").value("존재하지 않는 게시판입니다."));
     }
 

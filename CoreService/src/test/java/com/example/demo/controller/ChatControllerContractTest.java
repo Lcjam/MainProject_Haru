@@ -231,7 +231,7 @@ class ChatControllerContractTest {
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("404"))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
                 .andExpect(jsonPath("$.data").value("채팅방을 찾을 수 없습니다."));
     }
 
@@ -244,7 +244,7 @@ class ChatControllerContractTest {
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("403"))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
                 .andExpect(jsonPath("$.data").value("해당 상품의 등록자만 요청을 승인할 수 있습니다."));
     }
 
@@ -257,7 +257,7 @@ class ChatControllerContractTest {
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("404"))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
                 .andExpect(jsonPath("$.data").value("해당 요청을 찾을 수 없습니다."));
     }
 
@@ -311,7 +311,7 @@ class ChatControllerContractTest {
 
         mockMvc.perform(post("/api/core/chat/rooms/{chatroomId}/approve", 1).header("Authorization", "Bearer ok"))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.code").value("500"))
+                .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
                 .andExpect(jsonPath("$.data").value("서버 오류가 발생했습니다."));
     }
 

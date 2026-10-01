@@ -1,6 +1,7 @@
 import React from 'react';
 import { MessageType, IChatMessage } from '../../../services/real-time/types';
 import ProfileImage from '../image/ProfileImage';
+import AuthenticatedChatImage from './AuthenticatedChatImage';
 
 /** 메시지 시간 포맷팅 (배열/문자열 날짜 모두 허용, KST 표기) */
 export const formatMessageTime = (dateStr: string | number[]): string => {
@@ -85,11 +86,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({
                   : 'bg-white dark:bg-gray-800 rounded-tl-sm'
               }`}>
                 {msg.messageType === MessageType.IMAGE ? (
-                  <img
-                    src={msg.content}
-                    alt="전송된 이미지"
-                    className="w-full max-w-xs rounded-xl"
-                  />
+                  <AuthenticatedChatImage path={msg.content} className="w-full max-w-xs rounded-xl" />
                 ) : msg.messageType === MessageType.FILE ? (
                   <a
                     href={msg.content}

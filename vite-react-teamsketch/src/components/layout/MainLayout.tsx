@@ -58,7 +58,7 @@ export const FOOTER_HIDDEN_PATHS = [
 ];
 
 // 로그인/회원가입 관련 인증 경로
-export const AUTH_PATHS = ['/login', '/signup'];
+export const AUTH_PATHS = ['/login', '/signup', '/oauth2/redirect'];
 
 // 첫 로그인 시 위치 설정 페이지인지 확인하는 함수
 export const isInitialLocationPage = () => {

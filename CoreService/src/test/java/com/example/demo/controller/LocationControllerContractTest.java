@@ -95,7 +95,7 @@ class LocationControllerContractTest {
         mockMvc.perform(get("/api/core/location/rooms/{chatroomId}/recent", 1)
                         .header("Authorization", "Bearer ok"))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.code").value("500"))
+                .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
                 .andExpect(jsonPath("$.data").value("서버 오류가 발생했습니다."));
     }
 
@@ -109,7 +109,7 @@ class LocationControllerContractTest {
         mockMvc.perform(get("/api/core/location/rooms/{chatroomId}/recent", 1)
                         .header("Authorization", "Bearer ok"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("404"))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
                 .andExpect(jsonPath("$.data").value("채팅방을 찾을 수 없습니다."));
     }
 
@@ -153,7 +153,7 @@ class LocationControllerContractTest {
         mockMvc.perform(get("/api/core/location/rooms/{chatroomId}/users/{email}/last", 1, "other@haru.com")
                         .header("Authorization", "Bearer ok"))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.code").value("500"))
+                .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
                 .andExpect(jsonPath("$.data").value("서버 오류가 발생했습니다."));
     }
 
@@ -167,7 +167,7 @@ class LocationControllerContractTest {
         mockMvc.perform(get("/api/core/location/rooms/{chatroomId}/users/{email}/last", 1,
                         "outsider@haru.com").header("Authorization", "Bearer ok"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("404"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test

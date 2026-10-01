@@ -16,16 +16,19 @@ import java.io.IOException;
 @Component
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) throws IOException, ServletException {
-        
+        writeError(response, "AUTH_REQUIRED", "로그인이 필요합니다.");
+    }
+
+    static void writeError(HttpServletResponse response, String code, String message) throws IOException {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        
-        ApiResponse<?> errorResponse = ApiResponse.error("인증에 실패했습니다. 유효한 토큰이 필요합니다.", "401");
+        response.setCharacterEncoding("UTF-8");
+        ApiResponse<?> errorResponse = ApiResponse.error(message, code);
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }
 }

@@ -20,15 +20,13 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -40,15 +38,13 @@ public class ChatMessageService {
     private final ProductRequestMapper productRequestMapper;
     private final UserMapper userMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final FileStorageService fileStorageService;
 
     // 📌 `@Qualifier`를 필드에 직접 적용하여 명확하게 지정
     private final @Qualifier("chatChannelTopic") ChannelTopic chatChannelTopic;
 
     @Value("${chat.default.page-size:20}")
     private int defaultPageSize;
-
-    // 실행 중 생성 가능한 채팅 이미지 저장 경로
-    private final Path chatImageRootDir = Paths.get(System.getProperty("user.dir"), "uploads", "chat-images");
 
     /**
      * 메시지 전송
@@ -181,32 +177,25 @@ public class ChatMessageService {
      */
     @Transactional
     public ChatMessage sendImageMessage(String userEmail, Integer chatroomId, MultipartFile image) {
+        String path = null;
         try {
             // 채팅방 존재 여부 확인
             ChatRoom chatRoom = chatRoomMapper.findChatRoomById(chatroomId, userEmail);
             validateChatRoomAccess(chatRoom, userEmail);
             
-            // 이미지 저장 디렉토리 확인 및 생성
-            Path chatImageDir = chatImageRootDir.resolve("chatroom_" + chatroomId);
-            if (!Files.exists(chatImageDir)) {
-                Files.createDirectories(chatImageDir);
-                log.info("채팅 이미지 저장 디렉토리 생성: {}", chatImageDir);
+            path = fileStorageService.storeFile(image,
+                    "chat-images/chatroom_" + chatroomId, image.getOriginalFilename());
+            if (path == null) throw new IllegalArgumentException("이미지 파일이 비어있습니다.");
+            String storedPath = path;
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCompletion(int status) {
+                        if (status != STATUS_COMMITTED) fileStorageService.deleteStoredFile(storedPath);
+                    }
+                });
             }
-            
-            // 이미지 파일 저장
-            String originalFilename = image.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            
-            String newFilename = UUID.randomUUID().toString() + extension;
-            Path imagePath = chatImageDir.resolve(newFilename);
-            Files.copy(image.getInputStream(), imagePath, StandardCopyOption.REPLACE_EXISTING);
-            log.info("채팅 이미지 저장 완료: {}", imagePath);
-            
-            // 이미지 경로 설정 (웹에서 접근 가능한 경로)
-            String imageUrl = "/chat-images/chatroom_" + chatroomId + "/" + newFilename;
+            String imageUrl = "/api/core/chat/images/" + chatroomId + "/"
+                    + path.substring(path.lastIndexOf('/') + 1);
             
             // 이미지 메시지 생성 및 저장
             ChatMessageRequest request = new ChatMessageRequest();
@@ -218,8 +207,10 @@ public class ChatMessageService {
             return sendMessage(userEmail, request);
             
         } catch (Exception e) {
-            log.error("이미지 메시지 전송 실패: {}", e.getMessage());
-            throw new RuntimeException("이미지 업로드 중 오류가 발생했습니다: " + e.getMessage());
+            if (path != null && !TransactionSynchronizationManager.isSynchronizationActive())
+                fileStorageService.deleteStoredFile(path);
+            if (e instanceof IllegalArgumentException invalidImage) throw invalidImage;
+            throw new RuntimeException("이미지 업로드 중 오류가 발생했습니다.", e);
         }
     }
 
@@ -235,6 +226,13 @@ public class ChatMessageService {
      */
     public ChatRoom findChatRoomById(Integer chatroomId, String email) {
         return chatRoomMapper.findChatRoomById(chatroomId, email);
+    }
+
+    public Path getChatImagePath(Integer chatroomId, String email, String fileId) {
+        ChatRoom room = chatRoomMapper.findChatRoomById(chatroomId, email);
+        validateChatRoomAccess(room, email);
+        return fileStorageService.resolveStoredPath(
+                "/chat-images/chatroom_" + chatroomId + "/" + fileId);
     }
 
     private boolean isChatParticipant(ChatRoom chatRoom, String userEmail) {

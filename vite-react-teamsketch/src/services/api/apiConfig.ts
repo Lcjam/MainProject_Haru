@@ -21,6 +21,10 @@ export const apiConfig = {
       base: `${BASE_URL}/core`,
       signup: `${BASE_URL}/core/auth/signup`,
       login: `${BASE_URL}/core/auth/login`,
+      oauthGoogle: `${BASE_URL}/core/auth/oauth2/google`,
+      oauthKakao: `${BASE_URL}/core/auth/oauth2/kakao`,
+      oauthNaver: `${BASE_URL}/core/auth/oauth2/naver`,
+      oauthExchange: `${BASE_URL}/core/auth/oauth2/exchange`,
       logout: `${BASE_URL}/core/auth/logout`,
       user: `${BASE_URL}/core/user`,
       // 일단 복붙 아까 복사한거 여기 붙여넣기 그다음 이름 정해주세요

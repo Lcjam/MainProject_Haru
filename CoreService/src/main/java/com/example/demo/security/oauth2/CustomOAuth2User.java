@@ -12,14 +12,16 @@ import java.util.*;
 public class CustomOAuth2User implements OAuth2User {
     private final Integer userId;
     private final String email;
+    private final String nickname;
     private final Collection<? extends GrantedAuthority> authorities;
     private final Map<String, Object> attributes;
     private final String nameAttributeKey;
 
-    public CustomOAuth2User(Integer userId, String email, Collection<? extends GrantedAuthority> authorities, 
+    public CustomOAuth2User(Integer userId, String email, String nickname, Collection<? extends GrantedAuthority> authorities,
                           Map<String, Object> attributes, String nameAttributeKey) {
         this.userId = userId;
         this.email = email;
+        this.nickname = nickname;
         this.authorities = authorities;
         this.attributes = attributes;
         this.nameAttributeKey = nameAttributeKey;
@@ -33,6 +35,7 @@ public class CustomOAuth2User implements OAuth2User {
         return new CustomOAuth2User(
                 user.getId().intValue(),
                 user.getEmail(),
+                user.getNickname(),
                 authorities,
                 attributes,
                 "email"

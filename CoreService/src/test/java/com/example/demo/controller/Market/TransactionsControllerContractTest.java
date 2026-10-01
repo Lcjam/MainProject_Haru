@@ -60,19 +60,19 @@ class TransactionsControllerContractTest {
         mockMvc.perform(post("/api/core/market/transactions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"productId\":100,\"requestId\":200}"))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("401"));
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTH_REQUIRED"));
         mockMvc.perform(get("/api/core/market/transactions/1"))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("401"));
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTH_REQUIRED"));
         mockMvc.perform(get("/api/core/market/transactions/user"))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("401"));
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTH_REQUIRED"));
         mockMvc.perform(post("/api/core/market/transactions/1/cancel"))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("401"));
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTH_REQUIRED"));
         mockMvc.perform(post("/api/core/market/transactions/payments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"transactionId\":1,\"paymentMethod\":\"카드\"}"))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("401"));
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTH_REQUIRED"));
         mockMvc.perform(get("/api/core/market/transactions/payments/1"))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("401"));
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTH_REQUIRED"));
     }
 
     @Test
@@ -101,10 +101,10 @@ class TransactionsControllerContractTest {
 
         mockMvc.perform(post("/api/core/market/transactions").with(actor())
                         .contentType(MediaType.APPLICATION_JSON).content("null"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("400"));
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("BAD_REQUEST"));
         mockMvc.perform(post("/api/core/market/transactions/payments").with(actor())
                         .contentType(MediaType.APPLICATION_JSON).content("null"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("400"));
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("BAD_REQUEST"));
     }
 
     @Test

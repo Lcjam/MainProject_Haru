@@ -49,12 +49,30 @@ describe('axiosInstance response interceptor', () => {
     await expect(responseHandler.fulfilled(response) as Promise<unknown>).rejects.toThrow('실패');
   });
 
-  it('401 + 만료 메시지면 localStorage token을 제거', async () => {
+  it('401 + AUTH_EXPIRED면 메시지 문구와 관계없이 계정 상태를 지운다', async () => {
     localStorage.setItem('token', 'jwt-abc');
     const error = {
       config: { url: '/core/user' },
-      response: { status: 401, data: { message: '토큰이 만료되었습니다' } }
+      response: { status: 401, data: { code: 'AUTH_EXPIRED', message: 'Session expired' } }
     };
+    await expect(responseHandler.rejected(error) as Promise<unknown>).rejects.toBe(error);
+    expect(localStorage.getItem('token')).toBeNull();
+  });
+
+  it('401 + AUTH_REQUIRED는 다른 계정 상태를 지우지 않는다', async () => {
+    localStorage.setItem('token', 'jwt-abc');
+    const error = { config: { url: '/core/user' }, response: {
+      status: 401, data: { code: 'AUTH_REQUIRED', message: '만료라는 문구와 관계없음' }
+    } };
+    await expect(responseHandler.rejected(error) as Promise<unknown>).rejects.toBe(error);
+    expect(localStorage.getItem('token')).toBe('jwt-abc');
+  });
+
+  it('401 + AUTH_INVALID는 계정 상태를 지운다', async () => {
+    localStorage.setItem('token', 'jwt-abc');
+    const error = { config: { url: '/core/user' }, response: {
+      status: 401, data: { code: 'AUTH_INVALID', message: 'Bad credential' }
+    } };
     await expect(responseHandler.rejected(error) as Promise<unknown>).rejects.toBe(error);
     expect(localStorage.getItem('token')).toBeNull();
   });

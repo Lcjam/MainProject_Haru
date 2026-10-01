@@ -1,9 +1,10 @@
-import { configureStore, combineReducers } from '@reduxjs/toolkit';
+import { configureStore, combineReducers, type Middleware, type UnknownAction } from '@reduxjs/toolkit';
 import { persistStore, persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage'; // localStorage 사용
 import { setupListeners } from '@reduxjs/toolkit/query';
+import { QueryClient } from '@tanstack/react-query';
 
-import authReducer from './slices/authSlice';
+import authReducer, { login, logout } from './slices/authSlice';
 import chatReducer from './slices/chatSlice';
 import testReducer from './slices/testSlice';
 import signupReducer from './slices/signupSlice';
@@ -17,7 +18,7 @@ import passwordChangeSlice from './slices/passwordChangeSlice';
 import notiSlice from './slices/notiSlice';
 
 // `combineReducers`를 사용하여 Redux Reducer 결합
-const rootReducer = combineReducers({
+const appReducer = combineReducers({
   auth: authReducer,
   chat: chatReducer,
   test: testReducer,
@@ -31,6 +32,27 @@ const rootReducer = combineReducers({
   passwordChange: passwordChangeSlice,
   noti: notiSlice
 });
+
+const isAccountBoundary = (action: UnknownAction) => login.match(action) || logout.match(action);
+const rootReducer = (state: ReturnType<typeof appReducer> | undefined, action: UnknownAction) =>
+  appReducer(isAccountBoundary(action) ? undefined : state, action);
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5 // 5분
+    }
+  }
+});
+
+const clearAccountCaches: Middleware = () => (next) => (action) => {
+  const result = next(action);
+  if (isAccountBoundary(action as UnknownAction)) {
+    queryClient.clear();
+    if ('caches' in globalThis) void caches.delete('api-cache');
+  }
+  return result;
+};
 
 // Redux Persist 설정
 const persistConfig = {
@@ -51,7 +73,7 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: false // redux-persist 사용 시 직렬화 검사 비활성화
-    })
+    }).concat(clearAccountCaches)
 });
 
 // Redux Persistor 생성

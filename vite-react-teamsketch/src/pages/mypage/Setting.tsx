@@ -4,8 +4,6 @@ import LogoutModal from '../account/LogoutModal';
 import { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
-import { clearUser } from '../../store/slices/userSlice';
-import { clearNotifications } from '../../store/slices/notiSlice';
 
 const Setting = () => {
   const [isLogoutModalOpen, setLogoutModalOpen] = useState(false);
@@ -16,8 +14,6 @@ const Setting = () => {
   const handleLogout = () => {
     console.log('로그아웃 실행!');
     dispatch(logout());
-    dispatch(clearUser());
-    dispatch(clearNotifications());
     setLogoutModalOpen(false);
     navigate('/login');
   };

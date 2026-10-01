@@ -24,6 +24,13 @@ dist-ssr
 *.sw?
 /Postman/*
 
+# 비공개 문서 (포트폴리오·면접 준비 등) — 로컬 전용, 원격 제외
+/docs/private/
+/docs/portfolio/
+
+# 런타임 업로드 파일 (상품 이미지) — 실행 중 생성되므로 커밋 금지
+/CoreService/src/main/resources/static/uploads/
+
 # Build 산출물 / 캐시 (재생성 가능 — 커밋 안 함)
 **/build/
 **/.gradle/

@@ -20,22 +20,29 @@ import java.util.concurrent.*;
 public class SmsService {
 
   private final DefaultMessageService messageService;
+  private final String fromNumber;
   private final Map<String, String> otpStore = new ConcurrentHashMap<>(); // Thread-safe 저장소
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1); // 타이머 스레드
 
   public SmsService(
       @Value("${sms.api.key}") String apiKey,
       @Value("${sms.api.secret}") String apiSecret,
-      @Value("${sms.api.url}") String apiUrl) {
+      @Value("${sms.api.url}") String apiUrl,
+      @Value("${sms.from-number}") String fromNumber) {
     // 로컬 등에서 SMS_API_URL 이 비어 있으면 솔라피 기본 주소로 폴백한다.
     // (빈 문자열이면 OkHttp 가 'Expected URL scheme' 예외로 기동을 막는다)
     if (apiUrl == null || apiUrl.isBlank()) {
       apiUrl = "https://api.solapi.com";
     }
     this.messageService = NurigoApp.INSTANCE.initialize(apiKey, apiSecret, apiUrl);
+    this.fromNumber = fromNumber;
   }
 
   public SingleMessageSentResponse sendSms(String phoneNumber) {
+    // 발신 번호는 솔라피에 등록된 번호여야 하므로 코드에 두지 않고 SMS_FROM_NUMBER 로 주입한다.
+    if (fromNumber == null || fromNumber.isBlank()) {
+      throw new IllegalStateException("SMS 발신 번호(SMS_FROM_NUMBER)가 설정되지 않았습니다.");
+    }
     try {
       // 디버깅 로그 추가
       log.debug("SMS 발송 시작: phoneNumber=" + phoneNumber);
@@ -50,11 +57,10 @@ public class SmsService {
 
       // 메시지 생성
       String text = "인증번호는 [" + verificationCode + "] 입니다.";
-      String from = "***REMOVED***"; // 발신 번호
       log.debug("메시지 내용: " + text);
 
       Message message = new Message();
-      message.setFrom(from);
+      message.setFrom(fromNumber);
       message.setTo(phoneNumber);
       message.setText(text);
 

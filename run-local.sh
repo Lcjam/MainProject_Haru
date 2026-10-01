@@ -11,7 +11,7 @@
 #     3) 프론트(vite, 3000)를 포그라운드로 기동한다.
 #        => 이 터미널에서 Ctrl+C 하면 프론트가 종료된다.
 #
-#   사전 준비(가이드 LOCAL_DEV.md 참고):
+#   사전 준비(가이드: docs/development.md 참고):
 #     - 로컬 MySQL(localhost:3306, haru_db) 가 떠 있어야 한다 (이 스크립트는 띄우지 않음)
 #     - CoreService/.env , AssistService/.env 가 있어야 한다 (DB 자격증명)
 #     - vite-react-teamsketch 에서 npm install 한 번 해두어야 한다

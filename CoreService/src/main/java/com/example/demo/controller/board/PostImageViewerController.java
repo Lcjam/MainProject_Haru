@@ -30,7 +30,7 @@ public class PostImageViewerController {
         String email = tokens.getEmailFromAuthHeader(authorization);
         if (email == null) return ResponseEntity.status(401).build();
         if (!"image".equals(fileType) || !access.canRead(boardId, email)
-                || images.findUploader(boardId, fileName) == null) return ResponseEntity.notFound().build();
+                || (images.findUploader(boardId, fileName) == null && !files.isLegacyBoardFileName(fileName))) return ResponseEntity.notFound().build();
         try {
             Path path = files.resolveStoredPath("/board-files/board_" + boardId + "/image/" + fileName);
             if (!Files.isRegularFile(path) || !Files.isReadable(path)) return ResponseEntity.notFound().build();

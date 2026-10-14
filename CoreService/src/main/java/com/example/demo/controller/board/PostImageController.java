@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.nio.file.Files;
 import java.util.Map;
 
 @RestController
@@ -61,11 +62,20 @@ public class PostImageController {
         String email = tokens.getEmailFromAuthHeader(authorization);
         if (email == null) return ResponseEntity.status(401).body(ApiResponse.error("로그인이 필요합니다.", "AUTH_REQUIRED"));
         String uploader = images.findUploader(boardId, fileId);
-        if (uploader == null || !access.canDelete(boardId, email, uploader))
+        boolean legacyFile = uploader == null && files.isLegacyBoardFileName(fileId);
+        if ((!legacyFile && uploader == null) || !access.canDelete(boardId, email, uploader))
             return ResponseEntity.status(404).body(ApiResponse.error("이미지를 찾을 수 없습니다.", "NOT_FOUND"));
 
         String path = "/board-files/board_" + boardId + "/image/" + fileId;
-        if (images.delete(boardId, fileId) != 1)
+        if (legacyFile) {
+            try {
+                if (!Files.isRegularFile(files.resolveStoredPath(path)))
+                    return ResponseEntity.status(404).body(ApiResponse.error("이미지를 찾을 수 없습니다.", "NOT_FOUND"));
+            } catch (IllegalArgumentException exception) {
+                return ResponseEntity.status(404).body(ApiResponse.error("이미지를 찾을 수 없습니다.", "NOT_FOUND"));
+            }
+        }
+        if (!legacyFile && images.delete(boardId, fileId) != 1)
             return ResponseEntity.status(404).body(ApiResponse.error("이미지를 찾을 수 없습니다.", "NOT_FOUND"));
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

@@ -6,10 +6,12 @@ export default function AuthenticatedChatImage({ path, className }: { path: stri
   const [source, setSource] = useState<string>();
 
   useEffect(() => {
-    if (!/^\/api\/core\/chat\/images\/[1-9]\d*\/[0-9a-f-]+\.(?:jpg|jpeg|png|gif|bmp|webp)$/.test(path)) return;
+    const match = /^(?:\/api\/core\/chat\/images\/|\/chat-images\/chatroom_)([1-9]\d*)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|jpeg|png|gif|bmp|webp))$/i.exec(path);
+    if (!match || match[0] !== path) return;
+    const imagePath = `/api/core/chat/images/${match[1]}/${match[2]}`;
     const controller = new AbortController();
     let objectUrl: string | undefined;
-    const url = new URL(path, apiConfig.baseURL).toString();
+    const url = new URL(imagePath, apiConfig.baseURL).toString();
     axiosInstance.get<Blob>(url, { responseType: 'blob', signal: controller.signal })
       .then(({ data }) => {
         if (controller.signal.aborted) return;

@@ -57,6 +57,43 @@ class FileStorageServiceTest {
         assertFalse(storage.deleteStoredFile("/profile-images/123e4567-e89b-12d3-a456-426614174000.png"));
     }
 
+    @Test
+    void ancestorSymlinkAllowsUploadAndResolutionButRootOrChildSymlinkRejected() throws IOException {
+        Path real = root.resolve("real");
+        Path realUploads = real.resolve("uploads");
+        Files.createDirectories(realUploads);
+        Path link = root.resolve("link");
+        Files.createSymbolicLink(link, real);
+        Path storageDir = link.resolve("uploads");
+
+        // 1. Root with ancestor symlink: upload and resolution should succeed
+        FileStorageService storage = storage(storageDir, 1024);
+        String profile = storage.storeProfileImage(image("avatar.png", "image/png", PNG), "owner@haru.test");
+        Path resolved = storage.resolveStoredPath("/profile-images/" + profile);
+        assertTrue(Files.exists(resolved));
+        assertArrayEquals(PNG, Files.readAllBytes(resolved));
+
+        // 2. Root itself is a symlink: must be rejected
+        Path rootLink = root.resolve("root-link");
+        Files.createSymbolicLink(rootLink, realUploads);
+        assertThrows(IllegalStateException.class, () -> storage(rootLink, 1024));
+        FileStorageService symlinkLegacyStorage = new FileStorageService();
+        ReflectionTestUtils.setField(symlinkLegacyStorage, "uploadRoot", storageDir.toString());
+        ReflectionTestUtils.setField(symlinkLegacyStorage, "uploadLegacyRoot", rootLink.toString());
+        ReflectionTestUtils.setField(symlinkLegacyStorage, "defaultProfileImage", "default-profile.png");
+        symlinkLegacyStorage.init();
+        assertThrows(IllegalArgumentException.class,
+                () -> symlinkLegacyStorage.resolveStoredPath("/profile-images/123e4567-e89b-12d3-a456-426614174000.png"));
+
+        // 3. Child directory under root is a symlink: must be rejected
+        Path boardDir = storageDir.resolve("board-images");
+        Files.createDirectories(boardDir);
+        Path linkedBoard = boardDir.resolve("30");
+        Files.createSymbolicLink(linkedBoard, real);
+        assertThrows(IllegalArgumentException.class,
+                () -> storage.resolveStoredPath("/board-images/30/" + profile));
+    }
+
     private FileStorageService storage(Path root, long maxSize) {
         FileStorageService storage = new FileStorageService();
         ReflectionTestUtils.setField(storage, "uploadRoot", root.toString());

@@ -3,6 +3,7 @@ package com.example.demo.security;
 import com.example.demo.config.OAuth2Config;
 import com.example.demo.config.SecurityConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -19,7 +20,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.BindException;
 import java.net.URI;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.net.CookieManager;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -27,6 +33,7 @@ import java.net.http.HttpResponse;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -95,6 +102,41 @@ class AuthOriginHttpTest {
         assertTrue(cookie.contains("httponly"));
         assertTrue(cookie.contains("samesite=lax"));
         assertTrue(cookie.contains("secure"));
+    }
+
+    @Test
+    void oauthSessionCookieSupportsLocalHttpWithoutSecure() throws Exception {
+        var response = get("/api/core/auth/oauth2/session-probe", null);
+        assertEquals(200, response.statusCode());
+        String cookie = response.headers().firstValue("Set-Cookie").orElse("").toLowerCase(Locale.ROOT);
+        assertTrue(cookie.contains("httponly"));
+        assertTrue(cookie.contains("samesite=lax"));
+        assertFalse(cookie.contains("secure"));
+    }
+
+    @Test
+    void oauthSessionCookieIgnoresForwardedHttpsFromUntrustedPeer() throws Exception {
+        // 127.0.0.2 reaches the server but is outside the local Gateway allowlist.
+        try (Socket socket = new Socket()) {
+            try {
+                socket.bind(new InetSocketAddress("127.0.0.2", 0));
+            } catch (BindException exception) {
+                Assumptions.assumeTrue(false, "Loopback alias 127.0.0.2 is unavailable: " + exception.getMessage());
+            }
+            socket.connect(new InetSocketAddress("127.0.0.1", port), 5_000);
+            socket.setSoTimeout(5_000);
+            String request = "GET /api/core/auth/oauth2/session-probe HTTP/1.1\r\n"
+                    + "Host: localhost:" + port + "\r\n"
+                    + "X-Forwarded-Proto: https\r\nX-Forwarded-For: 127.0.0.1\r\nConnection: close\r\n\r\n";
+            socket.getOutputStream().write(request.getBytes(StandardCharsets.US_ASCII));
+            String response = new String(socket.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            assertTrue(response.startsWith("HTTP/1.1 200"));
+            String cookie = response.lines().filter(line -> line.toLowerCase(Locale.ROOT).startsWith("set-cookie:"))
+                    .findFirst().orElse("").toLowerCase(Locale.ROOT);
+            assertTrue(cookie.contains("httponly"));
+            assertTrue(cookie.contains("samesite=lax"));
+            assertFalse(cookie.contains("secure"));
+        }
     }
 
     private void assertError(String authorization, String code) throws Exception {

@@ -57,8 +57,18 @@ class AssistAuthOriginHttpTest {
         assertEquals(401, request("POST", "/api/assist/tinylamanaver/chat", null, "owner@haru.test").statusCode());
     }
 
+    @Test
+    void blankAuthorizationHeaderIsTreatedAsMissing() throws Exception {
+        assertError("", "AUTH_REQUIRED");
+        assertError("   ", "AUTH_REQUIRED");
+    }
+
     private void assertError(String authorization, String code) throws Exception {
-        var response = request("POST", "/api/assist/tinylamanaver/chat", authorization, null);
+        assertError("/api/assist/tinylamanaver/chat", authorization, code);
+    }
+
+    private void assertError(String path, String authorization, String code) throws Exception {
+        var response = request("POST", path, authorization, null);
         assertEquals(401, response.statusCode());
         var body = mapper.readTree(response.body());
         assertEquals("error", body.get("status").asText());

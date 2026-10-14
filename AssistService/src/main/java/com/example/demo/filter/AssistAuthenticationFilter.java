@@ -43,15 +43,25 @@ public class AssistAuthenticationFilter extends OncePerRequestFilter {
         }
 
         List<String> headers = Collections.list(request.getHeaders("Authorization"));
-        String authorization = headers.size() == 1 ? headers.get(0) : null;
-        String error = headers.size() > 1 ? "AUTH_INVALID"
-                : authorization == null || authorization.isBlank() ? null : tokens.authenticationErrorCode(authorization);
-        if (error != null) {
-            writeError(response, error);
+        if (headers.size() > 1) {
+            writeError(response, "AUTH_INVALID");
             return;
         }
-        if (!isPublic(request.getMethod(), path) && authorization == null) {
-            writeError(response, "AUTH_REQUIRED");
+        String rawAuth = headers.size() == 1 ? headers.get(0) : null;
+        boolean isMissing = rawAuth == null || rawAuth.isBlank();
+
+        if (isMissing) {
+            if (!isPublic(request.getMethod(), path)) {
+                writeError(response, "AUTH_REQUIRED");
+                return;
+            }
+            chain.doFilter(request, response);
+            return;
+        }
+
+        String error = tokens.authenticationErrorCode(rawAuth);
+        if (error != null) {
+            writeError(response, error);
             return;
         }
         chain.doFilter(request, response);

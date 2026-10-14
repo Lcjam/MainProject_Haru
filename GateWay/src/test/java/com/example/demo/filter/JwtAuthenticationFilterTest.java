@@ -99,6 +99,30 @@ class JwtAuthenticationFilterTest {
         assertTrue(called.get());
     }
 
+    @Test
+    void blankAuthorizationHeaderIsTreatedAsMissing() throws Exception {
+        assertError("", "AUTH_REQUIRED");
+        assertError("   ", "AUTH_REQUIRED");
+
+        var exchangeEmpty = MockServerWebExchange.from(MockServerHttpRequest.post("/api/core/auth/login")
+                .header("Authorization", ""));
+        var calledEmpty = new AtomicBoolean();
+        filter.apply(new JwtAuthenticationFilter.Config()).filter(exchangeEmpty, ignored -> {
+            calledEmpty.set(true);
+            return Mono.empty();
+        }).block();
+        assertTrue(calledEmpty.get());
+
+        var exchangeWhitespace = MockServerWebExchange.from(MockServerHttpRequest.post("/api/core/auth/login")
+                .header("Authorization", "   "));
+        var calledWhitespace = new AtomicBoolean();
+        filter.apply(new JwtAuthenticationFilter.Config()).filter(exchangeWhitespace, ignored -> {
+            calledWhitespace.set(true);
+            return Mono.empty();
+        }).block();
+        assertTrue(calledWhitespace.get());
+    }
+
     private void assertError(String authorization, String code) throws Exception {
         assertError("GET", "/api/core/users/me", authorization, code);
     }

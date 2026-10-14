@@ -56,11 +56,23 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             }
 
             List<String> authorizations = request.getHeaders().getOrEmpty(HttpHeaders.AUTHORIZATION);
-            String authorization = authorizations.size() == 1 ? authorizations.get(0) : null;
-            String errorCode = authorizations.size() > 1 ? "AUTH_INVALID"
-                    : authorization == null || authorization.isBlank() ? null : validateToken(authorization);
-            if (errorCode != null) return writeError(exchange, errorCode);
-            if (!isPublic(request) && authorization == null) return writeError(exchange, "AUTH_REQUIRED");
+            if (authorizations.size() > 1) {
+                return writeError(exchange, "AUTH_INVALID");
+            }
+            String rawAuth = authorizations.size() == 1 ? authorizations.get(0) : null;
+            boolean isMissing = rawAuth == null || rawAuth.isBlank();
+
+            if (isMissing) {
+                if (!isPublic(request)) {
+                    return writeError(exchange, "AUTH_REQUIRED");
+                }
+                return chain.filter(exchange);
+            }
+
+            String errorCode = validateToken(rawAuth);
+            if (errorCode != null) {
+                return writeError(exchange, errorCode);
+            }
             return chain.filter(exchange);
         };
     }

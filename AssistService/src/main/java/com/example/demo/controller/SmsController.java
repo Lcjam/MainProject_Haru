@@ -35,18 +35,15 @@ public class SmsController {
 
   @PostMapping("/verify-otp")
   public ResponseEntity<Map<String, Object>> verifyOtp(@RequestBody Map<String, String> requestBody) {
-    log.debug("요청받은 데이터: " + requestBody);
-
     String phoneNumber = requestBody.get("phoneNumber");
     String otp = requestBody.get("otp");
-    log.debug("phoneNumber: " + phoneNumber + ", otp: " + otp);
 
     boolean isVerified = smsService.verifyCode(phoneNumber, otp);
 
     Map<String, Object> responseBody = new HashMap<>();
     responseBody.put("success", isVerified);
     responseBody.put("message", isVerified ? "success" : "fail");
-    log.debug("responseBody: " + responseBody);
+    log.debug("OTP 검증 완료: success={}", isVerified);
 
     return ResponseEntity.ok(responseBody);
   }

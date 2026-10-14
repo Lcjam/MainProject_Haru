@@ -80,6 +80,8 @@ services:
       REDIS_PORT: "6379"
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Copy .env.compose.example to .env and set REDIS_PASSWORD}
       UPLOAD_ROOT: /data
+      UPLOAD_LEGACY_ROOT: /data/src/main/resources/static
+      UPLOAD_LEGACY_CHAT_ROOT: /data/uploads
       JWT_SECRET: ${JWT_SECRET:?Copy .env.compose.example to .env and set JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       OAUTH2_REDIRECT_URI: ${OAUTH2_REDIRECT_URI:-http://localhost:3000/oauth2/redirect}

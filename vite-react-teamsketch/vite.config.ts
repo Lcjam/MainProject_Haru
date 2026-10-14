@@ -86,21 +86,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB로 증가
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg}'],
-        runtimeCaching: [
-          {
-            // 게이트웨이 호스트가 dev/prod 마다 달라지므로 경로(/api/) 기준으로 매칭
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 // 24시간
-              }
-            }
-          }
-        ]
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg}']
       }
     })
   ],

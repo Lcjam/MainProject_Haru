@@ -2,7 +2,7 @@ import { isAxiosError } from 'axios';
 
 /**
  * axios 에러 또는 일반 Error 에서 사람이 읽을 메시지를 안전하게 추출한다.
- * 서버 응답이 `{ data: { message } }` 또는 `{ message }` 형태인 경우를 모두 처리한다.
+ * 새 `{ message }`와 이전 `{ data: { message } }`/`{ data: string }`을 처리한다.
  * `any` 캐스팅 없이 타입 가드(isAxiosError)로 좁혀 쓰기 위한 공용 헬퍼.
  */
 export const getErrorMessage = (
@@ -11,9 +11,10 @@ export const getErrorMessage = (
 ): string => {
   if (isAxiosError(error)) {
     const body = error.response?.data as
-      | { message?: string; data?: { message?: string } }
+      | { message?: string; data?: string | { message?: string } }
       | undefined;
-    return body?.data?.message || body?.message || error.message || fallback;
+    return body?.message || (typeof body?.data === 'string' ? body.data : body?.data?.message)
+      || error.message || fallback;
   }
   if (error instanceof Error) {
     return error.message || fallback;

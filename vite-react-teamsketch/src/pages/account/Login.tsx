@@ -5,6 +5,7 @@ import { login } from '../../store/slices/authSlice';
 import { setUser } from '../../store/slices/userSlice';
 import type { LoginRequest } from '../../types/auth';
 import { useLogin, useInfoApi } from '../../services/api/authAPI';
+import { apiConfig } from '../../services/api/apiConfig';
 import LoginLayout from '../../components/layout/LoginLayout';
 import Button from '../../components/common/BaseButton';
 import Loading from '../../components/common/Loading';
@@ -228,13 +229,13 @@ const Login = () => {
           }
           socialLogins={
             <div className="flex justify-center items-center gap-6">
-              <button type="button" className="w-20 h-20 hover:opacity-80 transition-opacity">
+              <button type="button" className="w-20 h-20 hover:opacity-80 transition-opacity" onClick={() => window.location.assign(apiConfig.endpoints.core.oauthGoogle)}>
                 <img src={google} alt="구글 로그인" className="w-full h-full object-contain" />
               </button>
-              <button type="button" className="w-20 h-20 hover:opacity-80 transition-opacity">
+              <button type="button" className="w-20 h-20 hover:opacity-80 transition-opacity" onClick={() => window.location.assign(apiConfig.endpoints.core.oauthKakao)}>
                 <img src={kakao} alt="카카오 로그인" className="w-full h-full object-contain" />
               </button>
-              <button type="button" className="w-20 h-20 hover:opacity-80 transition-opacity">
+              <button type="button" className="w-20 h-20 hover:opacity-80 transition-opacity" onClick={() => window.location.assign(apiConfig.endpoints.core.oauthNaver)}>
                 <img src={naver} alt="네이버 로그인" className="w-full h-full object-contain" />
               </button>
             </div>

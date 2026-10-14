@@ -30,7 +30,7 @@ public class CloudOCRController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(CommonResponseDTO.<String>builder()
                 .status("error")
-                .data(new CommonResponseDTO.Data<>("이미지 처리 중 오류가 발생했습니다.", e.getMessage()))
+                .data(new CommonResponseDTO.Data<>("이미지 처리 중 오류가 발생했습니다.", null))
                 .code("500")
                 .build());
         }

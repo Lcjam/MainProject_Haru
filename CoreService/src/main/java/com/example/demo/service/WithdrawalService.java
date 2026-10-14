@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 
@@ -83,16 +85,20 @@ public class WithdrawalService {
         // 4. 자기소개 변경
         String newBio = "탈퇴한 회원입니다.";
         
-        // 5. 프로필 이미지 처리 - 기존 이미지가 있으면 삭제
-        if (user.getProfileImagePath() != null && !user.getProfileImagePath().isEmpty()) {
-            fileStorageService.deleteProfileImage(user.getProfileImagePath());
-        }
-        
         // 사용자 정보 익명화 및 탈퇴 처리
         userMapper.anonymizeUserData(email, newNickname, maskedPhoneNumber, newBio, now);
         
         // 계정 정보 테이블의 상태도 업데이트
         userMapper.updateUserAccountInfoStatus(email, "Withdrawal");
+
+        String oldImage = user.getProfileImagePath();
+        if (oldImage != null && !oldImage.isEmpty()) {
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCommit() { fileStorageService.deleteProfileImage(oldImage); }
+                });
+            } else fileStorageService.deleteProfileImage(oldImage);
+        }
         
         // 응답 생성
         return WithdrawalResponse.builder()

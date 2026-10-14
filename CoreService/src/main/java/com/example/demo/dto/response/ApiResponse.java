@@ -13,6 +13,7 @@ public class ApiResponse<T> {
     private String status;
     private T data;
     private String code;
+    private String message;
     
     public static <T> ApiResponse<T> success(T data) {
         return ApiResponse.<T>builder()
@@ -35,6 +36,7 @@ public class ApiResponse<T> {
                 .status("error")
                 .data(data)
                 .code(code)
+                .message(data instanceof String ? (String) data : null)
                 .build();
     }
 }

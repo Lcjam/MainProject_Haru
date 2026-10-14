@@ -1,6 +1,7 @@
 package com.example.demo.util;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -57,16 +58,32 @@ public class TokenUtils {
             return null;
         }
         try {
-            Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(secretKey)
-                    .build()
-                    .parseClaimsJws(extractTokenWithoutBearer(token))
-                    .getBody();
-
-            return claims.getSubject();
+            return parseClaims(token).getSubject();
         } catch (JwtException | IllegalArgumentException e) {
-            log.debug("토큰 검증 실패: {}", e.getMessage());
+            log.debug("토큰 검증 실패");
             return null;
         }
+    }
+
+    public String authenticationErrorCode(String authorization) {
+        if (authorization == null || authorization.isBlank()) {
+            return "AUTH_REQUIRED";
+        }
+        if (!authorization.startsWith("Bearer ") || authorization.length() == 7) {
+            return "AUTH_INVALID";
+        }
+        try {
+            String subject = parseClaims(authorization).getSubject();
+            return subject == null || subject.isBlank() ? "AUTH_INVALID" : null;
+        } catch (ExpiredJwtException e) {
+            return "AUTH_EXPIRED";
+        } catch (JwtException | IllegalArgumentException e) {
+            return "AUTH_INVALID";
+        }
+    }
+
+    private Claims parseClaims(String token) {
+        return Jwts.parserBuilder().setSigningKey(secretKey).build()
+                .parseClaimsJws(extractTokenWithoutBearer(token)).getBody();
     }
 }

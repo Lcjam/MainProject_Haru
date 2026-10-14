@@ -6,6 +6,7 @@ import com.example.demo.dto.auth.*;
 import com.example.demo.dto.hobby.*;
 import com.example.demo.service.FileStorageService;
 import com.example.demo.service.UserService;
+import com.example.demo.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -24,6 +25,7 @@ public class ProfileController {
     
     private final UserService userService;
     private final FileStorageService fileStorageService;
+    private final UserMapper userMapper;
     
     /**
      * 자신의 프로필 조회
@@ -209,34 +211,20 @@ public class ProfileController {
     @GetMapping("/image/{filename:.+}")
     public ResponseEntity<?> getProfileImage(@PathVariable String filename) {
         try {
-            // 파일 경로 생성
-            java.nio.file.Path imagePath = java.nio.file.Paths.get(System.getProperty("user.dir") + "/src/main/resources/static/profile-images/" + filename);
-            java.io.File file = imagePath.toFile();
-            log.debug("@@@@@@@@@@@@@@@@@@@파일 경로: " + imagePath);
-            
-            // 파일이 존재하는지 확인
-            if (!file.exists()) {
-                log.error("프로필 이미지 파일을 찾을 수 없음: {}", filename);
+            if (userMapper.countActiveProfilesByImage(filename) == 0) {
                 return ResponseEntity.notFound().build();
             }
-            
-            // 파일 내용 읽기
-            org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(file.toURI());
-            
-            // MIME 타입 감지
+            java.nio.file.Path imagePath = fileStorageService.getProfileImagePath(filename);
+            if (!java.nio.file.Files.isRegularFile(imagePath)) return ResponseEntity.notFound().build();
+            org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(imagePath.toUri());
             String contentType = java.nio.file.Files.probeContentType(imagePath);
-            if (contentType == null) {
-                contentType = "application/octet-stream";
-            }
-            
-            // 이미지 직접 반환
+            if (contentType == null) return ResponseEntity.notFound().build();
             return ResponseEntity.ok()
                     .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
                     .body(resource);
         } catch (Exception ex) {
-            log.error("프로필 이미지 제공 실패: {}", ex.getMessage());
-            return ResponseEntity.status(500).body("이미지 로드 중 오류가 발생했습니다.");
+            return ResponseEntity.notFound().build();
         }
     }
     
@@ -249,33 +237,17 @@ public class ProfileController {
         try {
             String defaultImageName = fileStorageService.getDefaultProfileImageName();
             
-            // 파일 경로 생성
-            java.nio.file.Path imagePath = java.nio.file.Paths.get(System.getProperty("user.dir") + "/src/main/resources/static/profile-images/" + defaultImageName);
-            java.io.File file = imagePath.toFile();
-            
-            // 파일이 존재하는지 확인
-            if (!file.exists()) {
-                log.error("기본 프로필 이미지 파일을 찾을 수 없음: {}", defaultImageName);
-                return ResponseEntity.notFound().build();
-            }
-            
-            // 파일 내용 읽기
-            org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(file.toURI());
-            
-            // MIME 타입 감지
+            java.nio.file.Path imagePath = fileStorageService.getProfileImagePath(defaultImageName);
+            if (!java.nio.file.Files.isRegularFile(imagePath)) return ResponseEntity.notFound().build();
+            org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(imagePath.toUri());
             String contentType = java.nio.file.Files.probeContentType(imagePath);
-            if (contentType == null) {
-                contentType = "application/octet-stream";
-            }
-            
-            // 이미지 직접 반환
+            if (contentType == null) return ResponseEntity.notFound().build();
             return ResponseEntity.ok()
                     .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
                     .body(resource);
         } catch (Exception ex) {
-            log.error("기본 프로필 이미지 제공 실패: {}", ex.getMessage());
-            return ResponseEntity.status(500).body("이미지 로드 중 오류가 발생했습니다.");
+            return ResponseEntity.notFound().build();
         }
     }
     

@@ -23,6 +23,7 @@ import VerificationCode from './pages/account/VerificationCode';
 import VerifyMethod from './pages/account/VerifyMethod';
 import ResetPassword from './pages/account/ResetPassword';
 import DeleteAccount from './pages/account/DeleteAccount';
+import OAuth2Redirect from './pages/account/OAuth2Redirect';
 import SplashScreen from './components/common/splash/SplashScreen';
 
 const App = () => {
@@ -79,7 +80,8 @@ const App = () => {
       '/forgotpassword',
       '/verfication-code',
       '/verify-method',
-      '/reset-password'
+      '/reset-password',
+      '/oauth2/redirect'
     ];
 
     // 토큰이 없고 공개 경로가 아닌 경우 로그인 페이지로 이동
@@ -121,6 +123,7 @@ const App = () => {
           <Route path="/verify-method" element={<VerifyMethod />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/delete-account" element={<DeleteAccount />} />
+          <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
 
           {/* Protected Routes */}
           <Route

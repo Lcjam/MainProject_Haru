@@ -54,6 +54,11 @@ const loginApi = async (credentials: LoginCredentials) => {
   return response.data;
 };
 
+export const exchangeOAuth2Code = async (code: string) => {
+  const response = await axiosInstance.post(apiConfig.endpoints.core.oauthExchange, { code });
+  return response.data;
+};
+
 // 회원가입 API
 const signupApi = async (userData: SignupForm) => {
   const response = await axiosInstance.post<SignupResponse>(
@@ -70,7 +75,7 @@ const logoutApi = async () => {
 };
 
 // 유저정보조회 API
-const getUserInfoApi = async () => {
+export const getUserInfoApi = async () => {
   const response = await axiosInstance.get(apiConfig.endpoints.core.userinfo);
   return response.data;
 };

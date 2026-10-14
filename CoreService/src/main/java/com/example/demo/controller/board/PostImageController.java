@@ -1,104 +1,89 @@
 package com.example.demo.controller.board;
 
 import com.example.demo.dto.response.ApiResponse;
+import com.example.demo.mapper.board.BoardTempImageMapper;
+import com.example.demo.service.BoardImageAccess;
 import com.example.demo.service.FileStorageService;
 import com.example.demo.util.TokenUtils;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.util.HashMap;
+import java.nio.file.Files;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/core/boards/{boardId}/posts/images")
 @RequiredArgsConstructor
-@Slf4j
 public class PostImageController {
+    private final FileStorageService files;
+    private final TokenUtils tokens;
+    private final BoardImageAccess access;
+    private final BoardTempImageMapper images;
 
-    private final FileStorageService fileStorageService;
-    private final TokenUtils tokenUtils;
-
-    /**
-     * 게시글 이미지 업로드
-     */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<?>> uploadPostImage(
-            @RequestHeader("Authorization") String token,
-            @PathVariable Long boardId,
-            @RequestParam("image") MultipartFile image) {
-        
-        String email = tokenUtils.getEmailFromAuthHeader(token);
-        
-        if (email == null) {
-            return ResponseEntity.status(401).body(ApiResponse.error("인증되지 않은 요청입니다.", "401"));
-        }
-        
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long boardId, @RequestParam("image") MultipartFile image) {
+        String email = tokens.getEmailFromAuthHeader(authorization);
+        if (email == null) return ResponseEntity.status(401).body(ApiResponse.error("로그인이 필요합니다.", "AUTH_REQUIRED"));
+        if (!access.canRead(boardId, email))
+            return ResponseEntity.status(404).body(ApiResponse.error("이미지를 저장할 수 없습니다.", "NOT_FOUND"));
+
+        String path;
         try {
-            // 파일 검증
-            if (image.isEmpty()) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("이미지 파일이 비어있습니다.", "400"));
-            }
-            
-            // 이미지 저장
-            String fileName = image.getOriginalFilename();
-            String imagePath = fileStorageService.storeBoardFile(image, boardId, "image");
-            
-            if (imagePath == null) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("이미지 저장에 실패했습니다.", "400"));
-            }
-            
-            // 이미지 URL 생성 - API 엔드포인트로 변경
-            String imageUrl = "/api/core/boards/images/" + boardId + "/image/" + 
-                              imagePath.substring(imagePath.lastIndexOf("/") + 1);
-            
-            // 응답 데이터
-            Map<String, String> response = new HashMap<>();
-            response.put("imageUrl", imageUrl);
-            response.put("originalFileName", fileName);
-            
-            return ResponseEntity.ok(ApiResponse.success(response));
-        } catch (Exception e) {
-            log.error("이미지 업로드 중 오류: {}", e.getMessage());
-            return ResponseEntity.status(500).body(ApiResponse.error("서버 오류가 발생했습니다.", "500"));
+            path = files.storeBoardFile(image, boardId, "image");
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(exception.getMessage(), "BAD_REQUEST"));
         }
+        if (path == null) return ResponseEntity.badRequest().body(ApiResponse.error("이미지 파일이 비어있습니다.", "BAD_REQUEST"));
+
+        String fileId = path.substring(path.lastIndexOf('/') + 1);
+        try {
+            if (images.insert(boardId, fileId, email) != 1) throw new IllegalStateException("파일 메타데이터 저장 실패");
+        } catch (RuntimeException exception) {
+            files.deleteBoardFile(path);
+            throw exception;
+        }
+        String imageUrl = "/api/core/boards/images/" + boardId + "/image/" + fileId;
+        return ResponseEntity.ok(ApiResponse.success(Map.of("imageUrl", imageUrl, "fileId", fileId)));
     }
 
-    /**
-     * 게시글 이미지 삭제
-     */
     @DeleteMapping
+    @Transactional
     public ResponseEntity<ApiResponse<String>> deletePostImage(
-            @RequestHeader("Authorization") String token,
-            @PathVariable Long boardId,
-            @RequestParam("imageUrl") String imageUrl) {
-        
-        String email = tokenUtils.getEmailFromAuthHeader(token);
-        
-        if (email == null) {
-            return ResponseEntity.status(401).body(ApiResponse.error("인증되지 않은 요청입니다.", "401"));
-        }
-        
-        try {
-            // 이미지 경로 검증
-            if (!imageUrl.startsWith("/board-files/board_" + boardId)) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("유효하지 않은 이미지 URL입니다.", "400"));
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long boardId, @RequestParam("fileId") String fileId) {
+        String email = tokens.getEmailFromAuthHeader(authorization);
+        if (email == null) return ResponseEntity.status(401).body(ApiResponse.error("로그인이 필요합니다.", "AUTH_REQUIRED"));
+        String uploader = images.findUploader(boardId, fileId);
+        boolean legacyFile = uploader == null && files.isLegacyBoardFileName(fileId);
+        if ((!legacyFile && uploader == null) || !access.canDelete(boardId, email, uploader))
+            return ResponseEntity.status(404).body(ApiResponse.error("이미지를 찾을 수 없습니다.", "NOT_FOUND"));
+
+        String path = "/board-files/board_" + boardId + "/image/" + fileId;
+        if (legacyFile) {
+            try {
+                if (!Files.isRegularFile(files.resolveStoredPath(path)))
+                    return ResponseEntity.status(404).body(ApiResponse.error("이미지를 찾을 수 없습니다.", "NOT_FOUND"));
+            } catch (IllegalArgumentException exception) {
+                return ResponseEntity.status(404).body(ApiResponse.error("이미지를 찾을 수 없습니다.", "NOT_FOUND"));
             }
-            
-            // 이미지 삭제
-            boolean deleted = fileStorageService.deleteBoardFile(imageUrl);
-            
-            if (!deleted) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("이미지 삭제에 실패했습니다.", "400"));
-            }
-            
-            return ResponseEntity.ok(ApiResponse.success("이미지가 삭제되었습니다."));
-        } catch (Exception e) {
-            log.error("이미지 삭제 중 오류: {}", e.getMessage());
-            return ResponseEntity.status(500).body(ApiResponse.error("서버 오류가 발생했습니다.", "500"));
         }
+        if (!legacyFile && images.delete(boardId, fileId) != 1)
+            return ResponseEntity.status(404).body(ApiResponse.error("이미지를 찾을 수 없습니다.", "NOT_FOUND"));
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { files.deleteBoardFile(path); }
+            });
+        } else {
+            files.deleteBoardFile(path);
+        }
+        return ResponseEntity.ok(ApiResponse.success("이미지가 삭제되었습니다."));
     }
 }

@@ -297,7 +297,7 @@ class ChatMessageControllerContractTest {
     }
 
     @Test
-    @DisplayName("sendImageMessage: 예외 발생 시 400(현행 동작 — 500이 아니라 400으로 매핑됨)")
+    @DisplayName("sendImageMessage: 저장 실패는 500과 고정 문구")
     void sendImageMessage_exception_returns400() throws Exception {
         given(tokenUtils.extractTokenWithoutBearer(anyString())).willReturn("ok");
         given(tokenUtils.isTokenValid("ok")).willReturn(true);
@@ -310,8 +310,8 @@ class ChatMessageControllerContractTest {
                         .file(image)
                         .param("chatroomId", "1")
                         .header("Authorization", "Bearer ok"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("400"))
-                .andExpect(jsonPath("$.data").value("이미지 메시지 전송 실패: 업로드 실패"));
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
+                .andExpect(jsonPath("$.data").value("이미지 메시지를 저장하지 못했습니다."));
     }
 }

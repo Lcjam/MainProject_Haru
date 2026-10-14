@@ -1,5 +1,6 @@
 package com.example.demo.security;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +13,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Locale;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -24,10 +26,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         // WebSocket 요청인지 확인하고 필터링 제외
         String upgradeHeader = request.getHeader("Upgrade");
-        if (upgradeHeader != null && "websocket".equalsIgnoreCase(upgradeHeader)) {
-            return true; // WebSocket 요청은 필터링 제외
-        }
-        return false;
+        String path = request.getRequestURI();
+
+        return upgradeHeader != null && "websocket".equalsIgnoreCase(upgradeHeader)
+                && ("/ws".equals(path) || path.startsWith("/ws/"));
     }
 
     @Override
@@ -36,40 +38,63 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
 
+        String authorization = request.getHeader("Authorization");
         String token = resolveToken(request);
         String path = request.getRequestURI();
+
+        if (invalidPath(path)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
 
         // 로깅 추가
         log.debug("Received request to path: {}", path);
 
+        if (StringUtils.hasText(authorization) && (token == null || token.isBlank())) {
+            JwtAuthenticationEntryPoint.writeError(response, "AUTH_INVALID", "유효하지 않은 인증입니다.");
+            return;
+        }
+
         if (token != null) {
             try {
                 boolean isValid = jwtTokenProvider.validateToken(token);
-                boolean isBlacklisted = blacklistService.isBlacklisted(token);
-
-                log.debug("Token validation: isValid={}, isBlacklisted={}", isValid, isBlacklisted);
-
-                if (isValid && !isBlacklisted) {
+                if (!isValid) {
+                    try {
+                        jwtTokenProvider.getExpirationDate(token);
+                    } catch (ExpiredJwtException e) {
+                        JwtAuthenticationEntryPoint.writeError(response, "AUTH_EXPIRED", "인증이 만료되었습니다.");
+                        return;
+                    } catch (Exception e) {
+                        // 위조·손상된 토큰은 같은 코드로 응답한다.
+                    }
+                    JwtAuthenticationEntryPoint.writeError(response, "AUTH_INVALID", "유효하지 않은 인증입니다.");
+                    return;
+                }
+                if (!blacklistService.isBlacklisted(token)) {
                     Authentication auth = jwtTokenProvider.getAuthentication(token);
                     SecurityContextHolder.getContext().setAuthentication(auth);
                     log.debug("Authentication successful for user: {}", auth.getName());
-                } else if (isBlacklisted) {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.getWriter().write("Token has been invalidated");
+                } else {
+                    JwtAuthenticationEntryPoint.writeError(response, "AUTH_INVALID", "유효하지 않은 인증입니다.");
                     log.warn("Attempt to use blacklisted token for path: {}", path);
                     return;
-                } else {
-                    log.warn("Invalid token presented for path: {}", path);
                 }
             } catch (Exception e) {
-                log.error("JWT Authentication Error: {}", e.getMessage());
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("Unauthorized access: Invalid token");
+                log.warn("JWT Authentication Error for path: {}", path);
+                JwtAuthenticationEntryPoint.writeError(response, "AUTH_INVALID", "유효하지 않은 인증입니다.");
                 return;
             }
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean invalidPath(String path) {
+        String lower = path.toLowerCase(Locale.ROOT);
+        return path.contains("//") || path.indexOf('\\') >= 0 || path.endsWith("/")
+                || path.equals("/.") || path.equals("/..") || path.contains("/./") || path.contains("/../")
+                || path.endsWith("/.") || path.endsWith("/..")
+                || lower.matches("(?s).*%(?:2f|5c|00|2e|252f|255c|2500|252e).*");
     }
 
     /**
@@ -84,4 +109,3 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 }
-

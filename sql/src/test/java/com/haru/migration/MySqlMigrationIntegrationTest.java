@@ -85,18 +85,38 @@ class MySqlMigrationIntegrationTest {
     }
 
     @Test
-    void emptyInitReachesV2AndRerunIsSafe() throws Exception {
+    void emptyInitReachesV3AndRerunIsSafe() throws Exception {
         withDatabase(database -> {
             assertEquals(0, serverScalar("SELECT @@lower_case_table_names"));
             boolean haruDbBefore = databaseExists("haru_db");
             String result = runner(sqlDirectory(), "init", database, 10, null).run();
-            assertTrue(result.contains("version 2"));
-            assertEquals(29, baseTableCount(database));
-            assertEquals(3, historyCount(database));
+            assertTrue(result.contains("version 3"));
+            assertEquals(30, baseTableCount(database));
+            assertEquals(4, historyCount(database));
             assertThrows(IllegalStateException.class, () -> runner(sqlDirectory(), "init", database, 10, null).run());
             runner(sqlDirectory(), "migrate", database, 10, null).run();
-            assertEquals(3, historyCount(database));
+            assertEquals(4, historyCount(database));
             assertEquals(haruDbBefore, databaseExists("haru_db"), "schema.sql must not create its hard-coded database");
+        });
+    }
+
+    @Test
+    void v3BoardFileOwnershipHasForeignKeysAndUniqueIds() throws Exception {
+        withDatabase(database -> {
+            runner(sqlDirectory(), "init", database, 10, null).run();
+            executeIn(database, "INSERT INTO Users (email,password_hash,name,nickname,login_method) " +
+                    "VALUES ('owner@haru.test','x','Owner','owner-v3','EMAIL')");
+            executeIn(database, "INSERT INTO boards (id,name,host_email) " +
+                    "VALUES (30,'board','owner@haru.test')");
+            executeIn(database, "INSERT INTO board_temp_images (board_id,file_id,uploader_email) " +
+                    "VALUES (30,'file.png','owner@haru.test')");
+            assertEquals(1, scalar(database, "SELECT COUNT(*) FROM board_temp_images WHERE board_id=30"));
+            assertThrows(SQLException.class, () -> executeIn(database,
+                    "INSERT INTO board_temp_images (board_id,file_id,uploader_email) " +
+                            "VALUES (30,'file.png','owner@haru.test')"));
+            assertThrows(SQLException.class, () -> executeIn(database,
+                    "INSERT INTO board_temp_images (board_id,file_id,uploader_email) " +
+                            "VALUES (30,'other.png','missing@haru.test')"));
         });
     }
 
@@ -113,6 +133,7 @@ class MySqlMigrationIntegrationTest {
             assertEquals(1, scalar(database, "SELECT COUNT(*) FROM `Users` WHERE email='preserved@example.test'"));
             assertEquals("SUCCESS", historyStatus(database, "1"));
             assertEquals("SUCCESS", historyStatus(database, "2"));
+            assertEquals("SUCCESS", historyStatus(database, "3"));
         });
     }
 
@@ -126,7 +147,7 @@ class MySqlMigrationIntegrationTest {
             assertEquals("ADOPTED", historyStatus(database, "0"));
             assertEquals("ADOPTED", historyStatus(database, "1"));
             runner(sqlDirectory(), "migrate", database, 10, null).run();
-            assertEquals(3, historyCount(database));
+            assertEquals(4, historyCount(database));
         });
     }
 
@@ -291,7 +312,7 @@ class MySqlMigrationIntegrationTest {
         });
         withDatabase(database -> {
             runner(sqlDirectory(), "init", database, 10, null).run();
-            executeIn(database, "UPDATE `haru_schema_history` SET installed_rank=4 WHERE version='0'");
+            executeIn(database, "UPDATE `haru_schema_history` SET installed_rank=5 WHERE version='0'");
             assertThrows(IllegalStateException.class, () -> runner(sqlDirectory(), "migrate", database, 10, null).run());
         });
         withDatabase(database -> {

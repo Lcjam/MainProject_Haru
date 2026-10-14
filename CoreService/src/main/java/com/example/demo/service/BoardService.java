@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -66,7 +68,7 @@ public class BoardService {
                 .id(board.getId())
                 .name(board.getName())
                 .description(board.getDescription())
-                .imagePath(board.getImagePath())
+                .imagePath(boardImageUrl(board))
                 .hostEmail(board.getHostEmail())
                 .hostName(user.getNickname())
                 .memberCount(1) // 처음에는 호스트만 존재
@@ -157,24 +159,32 @@ public class BoardService {
             throw new IllegalArgumentException("게시판 수정 권한이 없습니다.");
         }
 
+        String imagePath = null;
         try {
-            // 기존 이미지가 있으면 삭제
-            if (board.getImagePath() != null) {
-                // 이미지 삭제 로직 (필요 시 구현)
+            imagePath = fileStorageService.storeFile(image, "board-images/" + boardId, image.getOriginalFilename());
+            if (imagePath == null) throw new IllegalArgumentException("이미지 파일이 비어있습니다.");
+            String newPath = imagePath;
+            String oldPath = board.getImagePath();
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCompletion(int status) {
+                        if (status == STATUS_COMMITTED) {
+                            if (oldPath != null) fileStorageService.deleteStoredFile(oldPath);
+                        }
+                        else fileStorageService.deleteStoredFile(newPath);
+                    }
+                });
             }
-
-            // 새 이미지 저장
-            String imagePath = "/board-images/" + boardId + "/" + System.currentTimeMillis() + "_" + image.getOriginalFilename();
-            fileStorageService.storeFile(image, "board-images/" + boardId, image.getOriginalFilename());
-
-            // 이미지 경로 업데이트
             boardMapper.updateBoardImage(boardId, imagePath);
+            if (!TransactionSynchronizationManager.isSynchronizationActive() && oldPath != null)
+                fileStorageService.deleteStoredFile(oldPath);
 
             // 업데이트된 정보 조회
             Board updatedBoard = boardMapper.findBoardById(boardId);
             return convertToResponse(updatedBoard);
         } catch (Exception e) {
-            log.error("게시판 이미지 업로드 중 오류: {}", e.getMessage());
+            if (imagePath != null && !TransactionSynchronizationManager.isSynchronizationActive())
+                fileStorageService.deleteStoredFile(imagePath);
             throw new RuntimeException("이미지 업로드 중 오류가 발생했습니다.", e);
         }
     }
@@ -445,7 +455,7 @@ public class BoardService {
                 .id(board.getId())
                 .name(board.getName())
                 .description(board.getDescription())
-                .imagePath(board.getImagePath())
+                .imagePath(boardImageUrl(board))
                 .hostEmail(board.getHostEmail())
                 .hostName(board.getHostName())
                 .memberCount(board.getMemberCount())
@@ -453,5 +463,12 @@ public class BoardService {
                 .updatedAt(board.getUpdatedAt())
                 .status(board.getStatus())
                 .build();
+    }
+
+    private String boardImageUrl(Board board) {
+        String path = board.getImagePath();
+        String prefix = "/board-images/" + board.getId() + "/";
+        return path != null && path.startsWith(prefix)
+                ? "/api/core/boards/" + board.getId() + "/image/" + path.substring(prefix.length()) : null;
     }
 }

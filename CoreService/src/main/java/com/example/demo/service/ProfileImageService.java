@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -28,17 +30,14 @@ public class ProfileImageService {
         User user = userMapper.findByEmail(email);
         
         if (user != null && user.getProfileImagePath() != null && !user.getProfileImagePath().isEmpty()) {
-            // 정적 리소스로 접근하도록 URL 구성 변경
             return ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/profile-images/")
+                    .path("/api/core/profiles/image/")
                     .path(user.getProfileImagePath())
                     .toUriString();
         }
         
-        // 기본 이미지 URL도 정적 리소스로 접근
         return ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/profile-images/")
-                .path(fileStorageService.getDefaultProfileImageName())
+                .path("/api/core/profiles/image/default")
                 .toUriString();
     }
     
@@ -47,54 +46,38 @@ public class ProfileImageService {
      */
     @Transactional
     public ProfileImageResponse uploadProfileImage(String email, MultipartFile file) {
-        try {
-            // 사용자 존재 여부 확인
-            User user = userMapper.findByEmail(email);
-            if (user == null) {
-                return ProfileImageResponse.builder()
-                        .success(false)
-                        .message("존재하지 않는 사용자입니다.")
-                        .build();
-            }
-            
-            // 기존 이미지가 있으면 삭제
-            if (user.getProfileImagePath() != null && !user.getProfileImagePath().isEmpty()) {
-                fileStorageService.deleteProfileImage(user.getProfileImagePath());
-            }
-            
-            // 새 이미지 저장
-            String fileName = fileStorageService.storeProfileImage(file, email);
-            
-            if (fileName == null) {
-                return ProfileImageResponse.builder()
-                        .success(false)
-                        .message("이미지 저장에 실패했습니다.")
-                        .build();
-            }
-            
-            // DB에 파일 경로 업데이트
-            userMapper.updateProfileImagePath(email, fileName);
-            
-            // 이미지 URL 생성
-            String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/api/core/profiles/image/")
-                    .path(fileName)
-                    .toUriString();
-            
-            return ProfileImageResponse.builder()
-                    .success(true)
-                    .message("프로필 이미지가 성공적으로 업로드되었습니다.")
-                    .profileImagePath(fileName)
-                    .profileImageUrl(fileDownloadUri)
-                    .build();
-            
-        } catch (Exception e) {
-       
-            return ProfileImageResponse.builder()
-                    .success(false)
-                    .message("프로필 이미지 업로드 중 오류가 발생했습니다: " + e.getMessage())
-                    .build();
+        User user = userMapper.findByEmail(email);
+        if (user == null) return ProfileImageResponse.builder().success(false)
+                .message("존재하지 않는 사용자입니다.").build();
+
+        String fileName = fileStorageService.storeProfileImage(file, email);
+        if (fileName == null) return ProfileImageResponse.builder().success(false)
+                .message("이미지 저장에 실패했습니다.").build();
+        String oldFileName = user.getProfileImagePath();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCompletion(int status) {
+                    if (status == STATUS_COMMITTED) fileStorageService.deleteProfileImage(oldFileName);
+                    else fileStorageService.deleteProfileImage(fileName);
+                }
+            });
         }
+        try {
+            if (userMapper.updateProfileImagePath(email, fileName) != 1)
+                throw new IllegalStateException("프로필 이미지 DB 갱신 실패");
+        } catch (RuntimeException exception) {
+            if (!TransactionSynchronizationManager.isSynchronizationActive())
+                fileStorageService.deleteProfileImage(fileName);
+            throw exception;
+        }
+        if (!TransactionSynchronizationManager.isSynchronizationActive())
+            fileStorageService.deleteProfileImage(oldFileName);
+
+        String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/core/profiles/image/").path(fileName).toUriString();
+        return ProfileImageResponse.builder().success(true)
+                .message("프로필 이미지가 성공적으로 업로드되었습니다.")
+                .profileImagePath(fileName).profileImageUrl(fileDownloadUri).build();
     }
     
     /**
@@ -102,39 +85,21 @@ public class ProfileImageService {
      */
     @Transactional
     public ProfileImageResponse deleteProfileImage(String email) {
-        try {
-            // 사용자 존재 여부 확인
-            User user = userMapper.findByEmail(email);
-            if (user == null) {
-                return ProfileImageResponse.builder()
-                        .success(false)
-                        .message("존재하지 않는 사용자입니다.")
-                        .build();
-            }
-            
-            // 이미지가 있으면 삭제
-            if (user.getProfileImagePath() != null && !user.getProfileImagePath().isEmpty()) {
-                fileStorageService.deleteProfileImage(user.getProfileImagePath());
-                userMapper.updateProfileImagePath(email, null);
-                
-                return ProfileImageResponse.builder()
-                        .success(true)
-                        .message("프로필 이미지가 성공적으로 삭제되었습니다.")
-                        .build();
-            } else {
-                return ProfileImageResponse.builder()
-                        .success(false)
-                        .message("삭제할 프로필 이미지가 없습니다.")
-                        .build();
-            }
-            
-        } catch (Exception e) {
-        
-            return ProfileImageResponse.builder()
-                    .success(false)
-                    .message("프로필 이미지 삭제 중 오류가 발생했습니다: " + e.getMessage())
-                    .build();
-        }
+        User user = userMapper.findByEmail(email);
+        if (user == null) return ProfileImageResponse.builder().success(false)
+                .message("존재하지 않는 사용자입니다.").build();
+        String oldFileName = user.getProfileImagePath();
+        if (oldFileName == null || oldFileName.isEmpty()) return ProfileImageResponse.builder()
+                .success(false).message("삭제할 프로필 이미지가 없습니다.").build();
+        if (userMapper.updateProfileImagePath(email, null) != 1)
+            throw new IllegalStateException("프로필 이미지 DB 갱신 실패");
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { fileStorageService.deleteProfileImage(oldFileName); }
+            });
+        } else fileStorageService.deleteProfileImage(oldFileName);
+        return ProfileImageResponse.builder().success(true)
+                .message("프로필 이미지가 성공적으로 삭제되었습니다.").build();
     }
     
     /**

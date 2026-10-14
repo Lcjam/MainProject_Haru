@@ -29,10 +29,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.example.demo.mapper.Market.UserLocationMapper;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -68,7 +68,9 @@ public class ProductService {
     }
 
     /** 상품 등록 (이미지도 함께 업로드) **/
+    @Transactional
     public ResponseEntity<BaseResponse<ProductResponse>> createProduct(String email, ProductRequest request, List<MultipartFile> images) {
+        List<String> createdImagePaths = new ArrayList<>();
         try {
             if ("대면".equals(request.getTransactionType()) &&
                     (request.getLatitude() == null || request.getLongitude() == null || request.getMeetingPlace() == null)) {
@@ -111,18 +113,25 @@ public class ProductService {
                 ResponseEntity<Object> response = imageUploadService.uploadProductImages(email, productId, images);
 
                 // 업로드된 이미지 경로를 가져와서 ProductImage 테이블에 저장
-                if (response.getStatusCode().is2xxSuccessful()) {
-                    Map<String, Object> responseBody = (Map<String, Object>) response.getBody();
-                    List<String> imagePaths = (List<String>) responseBody.get("imagePaths");
-
-                    for (String imagePath : imagePaths) {
+                if (!response.getStatusCode().is2xxSuccessful())
+                    throw new IllegalArgumentException("이미지 업로드 실패");
+                Map<String, Object> responseBody = (Map<String, Object>) response.getBody();
+                List<String> imagePaths = (List<String>) responseBody.get("imagePaths");
+                createdImagePaths.addAll(imagePaths);
+                if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override public void afterCompletion(int status) {
+                            if (status != STATUS_COMMITTED) imageUploadService.deleteProductImages(createdImagePaths);
+                        }
+                    });
+                }
+                for (String imagePath : imagePaths) {
                         ProductImage productImage = ProductImage.builder()
                                 .productId(productId)
                                 .imagePath(imagePath)
                                 .isThumbnail(false)
                                 .build();
                         productImageMapper.insertProductImage(productImage);
-                    }
                 }
             }
 
@@ -133,8 +142,11 @@ public class ProductService {
             return ResponseEntity.ok(new BaseResponse<>("success", "상품이 성공적으로 등록되었습니다.", productResponse));
 
         } catch (Exception ex) {
+            if (TransactionSynchronizationManager.isActualTransactionActive())
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            else imageUploadService.deleteProductImages(createdImagePaths);
             return ResponseEntity.internalServerError()
-                    .body(BaseResponse.<ProductResponse>error("상품 등록 중 오류 발생: " + ex.getMessage()));
+                    .body(BaseResponse.<ProductResponse>error("상품 등록 중 오류가 발생했습니다."));
         }
     }
 
@@ -587,13 +599,17 @@ public class ProductService {
         if (productImage == null) {
             return null;
         }
-
-        File file = new File(System.getProperty("user.dir") + "/src/main/resources/static" + productImage.getImagePath());
-        if (!file.exists()) {
+        Product product = productMapper.findById(productImage.getProductId(), null);
+        if (product == null || !product.isVisible()) {
             return null;
         }
-
-        Path path = file.toPath();
+        Path path;
+        try {
+            path = imageUploadService.resolveImagePath(productImage.getImagePath());
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+        if (!Files.isRegularFile(path)) return null;
         Resource resource = new UrlResource(path.toUri());
         if (!resource.exists() || !resource.isReadable()) {
             return null;

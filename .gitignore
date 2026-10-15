@@ -61,6 +61,10 @@ awesome-codex-subagents/
 !.env.example
 !**/.env.example
 
+# Postman 로컬 자격증명과 실행 응답
+/api-tests/*.local.postman_environment.json
+/api-tests/results/
+
 # TLS 인증서/개인키 — 절대 커밋 금지 (public 노출 방지)
 **/nginx/ssl/
 *.pem
@@ -72,3 +76,4 @@ awesome-codex-subagents/
 # Markdown: 루트 README.md 외 원격 제외
 *.md
 !/README.md
+!/api-tests/README.md

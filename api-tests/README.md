@@ -6,7 +6,7 @@
 
 | 폴더 | 확인하는 내용 | 필요한 설정 |
 |---|---|---|
-| `01 Startup` | 공개 조회 응답·로그인 입력 검증·인증 누락 거부 | 없음 |
+| `01 Startup` | 공개 조회 응답·로그인 입력 검증·인증 누락 거부, 공유 오류 계약(`BAD_REQUEST`·`INVALID_PATH`·`NOT_FOUND`) | 없음 |
 | `02 Authenticated` | 실제 로그인·프로필·취미·게시판·채팅·상품·거래 조회, Assist 입력 검증 | 로컬 환경의 `email`, `password` |
 | `03 Route auth` | 현재 Core 100개·Assist 7개 컨트롤러 REST 매핑마다 잘못된 토큰의 `401 / AUTH_INVALID` 응답 | 없음. Gateway 검사이며 downstream 기동 증거가 아님 |
 | `04 Board CRUD` | 이번 실행에서 만든 게시판·게시글·댓글 생성·조회·수정·삭제 | 전용 테스트 계정과 `enableCrud=true` |
@@ -77,6 +77,6 @@ node api-tests/verify.mjs
 
 생성기는 현재 Java 컨트롤러의 REST 매핑으로 컬렉션의 경로 인증 검사를 재생성한다. 현재처럼 경로를 한 줄에 쓰는 매핑 어노테이션을 전제로 한다. 여러 줄·배열·새 매핑 형식을 도입하면 생성기를 먼저 확장해야 한다. 새 기능의 정상 시나리오가 자동으로 생기는 것은 아니다. Postman에서 수정한 내용은 재생성 전에 생성기에 반영한다.
 
-MCP 일괄 저장 후에는 개별 요청의 스크립트·Bearer 설정이 유지되는지 재조회해야 한다. 이번 저장에서는 일괄 저장 후 누락된 설정을 요청별 갱신으로 보완하고, 146개 요청의 URL·헤더·본문·인증·스크립트와 폴더 공통 스크립트를 로컬 파일과 대조했다. 이후 파일을 수정하면 Postman에도 다시 반영해야 한다.
+MCP 일괄 저장 후에는 개별 요청의 스크립트·Bearer 설정이 유지되는지 재조회해야 한다. 이번 저장에서는 일괄 저장 후 누락된 설정을 요청별 갱신으로 보완하고, 146개 요청의 URL·헤더·본문·인증·스크립트와 폴더 공통 스크립트를 로컬 파일과 대조했다. 이후 파일을 수정하면 Postman에도 다시 반영해야 한다. C01(공유 오류 계약)에서 요청이 149개로 늘었으므로 Postman 저장본은 JSON을 다시 Import해 갱신한다.
 
 실행 옵션과 건너뛰기 동작은 [Newman 공식 문서](https://learning.postman.com/docs/reference/newman-cli/newman-options), [Postman 실행 제어 문서](https://learning.postman.com/v11/docs/tests-and-scripts/write-scripts/postman-sandbox-reference/pm-execution)를 참조한다.

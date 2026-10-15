@@ -1,65 +1,95 @@
 package com.example.demo.exception;
 
 import com.example.demo.dto.response.ApiResponse;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.validation.BindException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-/**
- * 컨트롤러에서 처리되지 않고 전파된 예외를 일관된 {@link ApiResponse} 형식(UTF-8 JSON)으로 변환한다.
- * 각 컨트롤러가 자체 try/catch 로 반환하는 응답에는 영향을 주지 않으며, 미처리 예외만 표준화한다.
- * (이전: @Valid 검증 실패가 security entry point 로 흘러 401 + 깨진 한글로 반환되던 문제를 교정)
- */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    /** @Valid 검증 실패 → 400 + 첫 번째 검증 메시지 */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<String>> handleValidation(MethodArgumentNotValidException ex) {
-        FieldError fieldError = ex.getBindingResult().getFieldError();
-        String message = fieldError != null ? fieldError.getDefaultMessage() : "잘못된 요청입니다.";
-        log.debug("검증 실패: {}", message);
-        return ResponseEntity.badRequest().body(ApiResponse.error(message, "BAD_REQUEST"));
+        var field = ex.getBindingResult().getFieldError();
+        return error(ApiErrorCode.BAD_REQUEST, field == null ? null : field.getDefaultMessage());
     }
 
-    /** 인증 실패(유효하지 않은/누락된 토큰) → 401 */
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ApiResponse<String>> handleUnauthorized(UnauthorizedException ex) {
-        log.debug("인증 실패: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(ex.getMessage(), "AUTH_REQUIRED"));
+        return error(ApiErrorCode.AUTH_REQUIRED, ex.getMessage());
     }
 
-    /** 자원 없음 → 404 */
-    @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<ApiResponse<String>> handleNotFound(NotFoundException ex) {
-        log.debug("자원 없음: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage(), "NOT_FOUND"));
+    @ExceptionHandler({NotFoundException.class, NoHandlerFoundException.class, NoResourceFoundException.class})
+    public ResponseEntity<ApiResponse<String>> handleNotFound(Exception ex) {
+        return error(ApiErrorCode.NOT_FOUND, ex instanceof NotFoundException ? ex.getMessage() : null);
     }
 
-    /** 권한 없음 → 403 */
-    @ExceptionHandler(ForbiddenException.class)
-    public ResponseEntity<ApiResponse<String>> handleForbidden(ForbiddenException ex) {
-        log.debug("권한 없음: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(ex.getMessage(), "FORBIDDEN"));
+    @ExceptionHandler({ForbiddenException.class, AccessDeniedException.class})
+    public ResponseEntity<ApiResponse<String>> handleForbidden(Exception ex) {
+        return error(ApiErrorCode.FORBIDDEN, ex instanceof ForbiddenException ? ex.getMessage() : null);
     }
 
-    /** 잘못된 인자 → 400 */
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<String>> handleIllegalArgument(IllegalArgumentException ex) {
-        log.debug("잘못된 인자: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage(), "BAD_REQUEST"));
+    @ExceptionHandler({IllegalArgumentException.class, HttpMessageNotReadableException.class,
+            MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class,
+            ConstraintViolationException.class, BindException.class, HandlerMethodValidationException.class,
+            MissingServletRequestPartException.class})
+    public ResponseEntity<ApiResponse<String>> handleBadRequest(Exception ex) {
+        return error(ApiErrorCode.BAD_REQUEST, ex.getClass() == IllegalArgumentException.class ? ex.getMessage() : null);
     }
 
-    /** 그 외 미처리 예외 → 500 (스택은 로깅, 본문엔 일반 메시지) */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<String>> handleMethod(HttpRequestMethodNotSupportedException ex) {
+        HttpHeaders headers = new HttpHeaders();
+        var supportedMethods = ex.getSupportedHttpMethods();
+        if (supportedMethods != null) headers.setAllow(supportedMethods);
+        var response = error(ApiErrorCode.METHOD_NOT_ALLOWED, null);
+        return new ResponseEntity<>(response.getBody(), headers, response.getStatusCode());
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<String>> handleUpload(Exception ex) {
+        return error(ApiErrorCode.PAYLOAD_TOO_LARGE, null);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<String>> handleMediaType(Exception ex) {
+        return error(ApiErrorCode.UNSUPPORTED_MEDIA_TYPE, null);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiResponse<String>> handleStatus(ResponseStatusException ex) {
+        return error(ApiErrorCode.fromStatus(ex.getStatusCode().value()), null);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<String>> handleGeneric(Exception ex) {
+        if (ex instanceof ErrorResponse errorResponse) {
+            return error(ApiErrorCode.fromStatus(errorResponse.getStatusCode().value()), null);
+        }
         log.error("처리되지 않은 예외", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("서버 오류가 발생했습니다.", "INTERNAL_ERROR"));
+        return error(ApiErrorCode.INTERNAL_ERROR, null);
+    }
+
+    private ResponseEntity<ApiResponse<String>> error(ApiErrorCode code, String message) {
+        String safe = code.fixedMessage() || message == null || message.isBlank() ? code.message() : message;
+        return ResponseEntity.status(code.httpStatus()).body(ApiResponse.error(safe, code.name()));
     }
 }

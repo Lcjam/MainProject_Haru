@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import BaseButton from '../../components/common/BaseButton';
 import { useNavigate } from 'react-router-dom';
 import { getChatRoomIdByProductId, requestProduct } from '../../services/api/productAPI';
-import { getErrorMessage, getErrorStatus } from '../../utils/errorMessage';
+import { getErrorCode, getErrorMessage, getErrorStatus } from '../../utils/errorMessage';
 import { toast } from 'react-toastify';
 
 const ProductDetails = () => {
@@ -164,7 +164,8 @@ const ProductDetails = () => {
       const message = getErrorMessage(error, '상품 신청 중 오류가 발생했습니다.');
       if (getErrorStatus(error) === 404) {
         toast.error('해당 상품이 존재하지 않습니다.');
-      } else if (message.includes('Duplicate')) {
+      } else if (getErrorCode(error) === 'CONFLICT') {
+        // 중복 신청은 HTTP 409 CONFLICT 코드로 분기 (서버 409 정렬은 D06/C03 후속 카드 몫)
         toast.warning('이미 신청한 상품입니다.');
       } else {
         toast.error(message);

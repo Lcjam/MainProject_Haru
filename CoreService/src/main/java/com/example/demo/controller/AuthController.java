@@ -5,6 +5,7 @@ package com.example.demo.controller;
 import com.example.demo.dto.response.*;
 import com.example.demo.dto.auth.*;
 import com.example.demo.service.UserService;
+import com.example.demo.exception.ApiErrorCode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +24,8 @@ public class AuthController {
         if (response.isSuccess()) {
             return ResponseEntity.ok(ApiResponse.success(response));
         } else {
-            return ResponseEntity.badRequest().body(ApiResponse.error(response, "400"));
+            ApiErrorCode code = response.getErrorCode() == null ? ApiErrorCode.BAD_REQUEST : response.getErrorCode();
+            return ResponseEntity.status(code.httpStatus()).body(ApiResponse.error(response, code.name()));
         }
     }
 

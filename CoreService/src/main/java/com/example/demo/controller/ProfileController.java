@@ -6,6 +6,7 @@ import com.example.demo.dto.auth.*;
 import com.example.demo.dto.hobby.*;
 import com.example.demo.service.FileStorageService;
 import com.example.demo.service.UserService;
+import com.example.demo.exception.ApiErrorCode;
 import com.example.demo.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -99,7 +100,8 @@ public class ProfileController {
         ProfileUpdateResponse response = userService.updateProfileByToken(token, request);
         
         if (!response.isSuccess()) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(response, "400"));
+            ApiErrorCode code = response.getErrorCode() == null ? ApiErrorCode.BAD_REQUEST : response.getErrorCode();
+            return ResponseEntity.status(code.httpStatus()).body(ApiResponse.error(response, code.name()));
         }
         
         return ResponseEntity.ok(ApiResponse.success(response));

@@ -7,6 +7,7 @@ import com.example.demo.dto.auth.SignupRequest;
 import com.example.demo.dto.auth.SignupResponse;
 import com.example.demo.dto.hobby.HobbyRequest;
 import com.example.demo.mapper.UserMapper;
+import com.example.demo.exception.ApiErrorCode;
 import com.example.demo.model.User;
 import com.example.demo.security.JwtTokenBlacklistService;
 import com.example.demo.security.JwtTokenProvider;
@@ -47,6 +48,7 @@ public class AuthService {
             if (userMapper.findByEmail(request.getEmail()) != null) {
                 return SignupResponse.builder()
                         .success(false)
+                        .errorCode(ApiErrorCode.DUPLICATE_EMAIL)
                         .message("이미 존재하는 이메일입니다.")
                         .build();
             }
@@ -55,6 +57,7 @@ public class AuthService {
             if (userMapper.findByNickname(request.getNickname()) != null) {
                 return SignupResponse.builder()
                         .success(false)
+                        .errorCode(ApiErrorCode.DUPLICATE_NICKNAME)
                         .message("이미 존재하는 닉네임입니다.")
                         .build();
             }
@@ -64,6 +67,7 @@ public class AuthService {
                 if (userMapper.findByPhoneNumber(request.getPhoneNumber()) != null) {
                     return SignupResponse.builder()
                             .success(false)
+                            .errorCode(ApiErrorCode.DUPLICATE_PHONE)
                             .message("이미 등록된 전화번호입니다.")
                             .build();
                 }

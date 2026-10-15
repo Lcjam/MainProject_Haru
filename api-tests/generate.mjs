@@ -22,6 +22,8 @@ const request = (name, method, url, options = {}) => ({
   ...((options.pre?.length || options.tests?.length) ? { event: [...(options.pre ?? []), ...(options.tests ?? [])] } : {}),
 });
 
+const withPath = (item, path) => ({ ...item, request: { ...item.request, url: { ...item.request.url, raw: `{{baseUrl}}/${path.join('/')}`, path } } });
+
 const ok = script(
   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
   "const body = pm.response.json();",
@@ -51,6 +53,8 @@ export function controllerRoutes() {
   };
   return directories.flatMap(javaFiles).flatMap((file) => {
     const source = fs.readFileSync(file, 'utf8');
+    // Servlet error dispatch (/error) is not a REST API route.
+    if (/\bimplements\s+ErrorController\b/.test(source)) return [];
     const base = source.match(/@RequestMapping\("([^"]+)"\)[\s\S]*?public class /)?.[1];
     if (!base) throw new Error(`Class-level @RequestMapping not found: ${path.relative(root, file)}`);
     const routes = [];
@@ -80,7 +84,23 @@ const startup = [
   }),
   request('Empty login is rejected', 'POST', '/api/core/auth/login', {
     body: { email: '', password: '' },
-    tests: script("pm.test('HTTP 400', () => pm.response.to.have.status(400));"),
+    tests: script(
+      "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+      "pm.test('BAD_REQUEST with message', () => { const body = pm.response.json(); pm.expect(body.status).to.eql('error'); pm.expect(body.code).to.eql('BAD_REQUEST'); pm.expect(body.message).to.be.a('string').and.not.empty; });",
+    ),
+  }),
+  withPath(request('Gateway rejects non-normalized path', 'GET', '/api/core/hobbies', {
+    tests: script(
+      "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+      "pm.test('INVALID_PATH', () => pm.expect(pm.response.json().code).to.eql('INVALID_PATH'));",
+    ),
+    description: 'Trailing slash path. The gateway rejects it before routing with the shared error envelope.',
+  }), ['api', 'core', 'hobbies', '']),
+  request('Gateway unknown route', 'GET', '/api/no-such-service/ping', {
+    tests: script(
+      "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+      "pm.test('NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('NOT_FOUND'));",
+    ),
   }),
   request('Core requires authentication', 'GET', '/api/core/profiles/me', {
     auth: { type: 'noauth' },
@@ -132,8 +152,16 @@ const authenticated = [
     tests: script(
       "pm.test('missing query is HTTP 400', () => pm.response.to.have.status(400));",
       "pm.test('request passed authentication', () => pm.expect(['AUTH_REQUIRED', 'AUTH_INVALID', 'AUTH_EXPIRED']).to.not.include(pm.response.json().code));",
+      "pm.test('BAD_REQUEST', () => pm.expect(pm.response.json().code).to.eql('BAD_REQUEST'));",
     ),
     description: 'The missing required query parameter is rejected by Assist before its controller can call Kakao.',
+  }),
+  request('Core unknown path after authentication', 'GET', '/api/core/no-such-endpoint', {
+    auth, pre: sessionGuard,
+    tests: script(
+      "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+      "pm.test('NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('NOT_FOUND'));",
+    ),
   }),
 ];
 

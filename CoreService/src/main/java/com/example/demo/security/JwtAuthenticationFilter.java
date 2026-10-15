@@ -1,6 +1,7 @@
 package com.example.demo.security;
 
 import io.jsonwebtoken.ExpiredJwtException;
+import com.example.demo.exception.ApiErrorCode;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,7 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
 
         if (invalidPath(path)) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            JwtAuthenticationEntryPoint.writeError(response, ApiErrorCode.INVALID_PATH);
             return;
         }
 
@@ -51,7 +52,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         log.debug("Received request to path: {}", path);
 
         if (StringUtils.hasText(authorization) && (token == null || token.isBlank())) {
-            JwtAuthenticationEntryPoint.writeError(response, "AUTH_INVALID", "유효하지 않은 인증입니다.");
+            JwtAuthenticationEntryPoint.writeError(response, ApiErrorCode.AUTH_INVALID);
             return;
         }
 
@@ -62,12 +63,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     try {
                         jwtTokenProvider.getExpirationDate(token);
                     } catch (ExpiredJwtException e) {
-                        JwtAuthenticationEntryPoint.writeError(response, "AUTH_EXPIRED", "인증이 만료되었습니다.");
+                        JwtAuthenticationEntryPoint.writeError(response, ApiErrorCode.AUTH_EXPIRED);
                         return;
                     } catch (Exception e) {
                         // 위조·손상된 토큰은 같은 코드로 응답한다.
                     }
-                    JwtAuthenticationEntryPoint.writeError(response, "AUTH_INVALID", "유효하지 않은 인증입니다.");
+                    JwtAuthenticationEntryPoint.writeError(response, ApiErrorCode.AUTH_INVALID);
                     return;
                 }
                 if (!blacklistService.isBlacklisted(token)) {
@@ -75,13 +76,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(auth);
                     log.debug("Authentication successful for user: {}", auth.getName());
                 } else {
-                    JwtAuthenticationEntryPoint.writeError(response, "AUTH_INVALID", "유효하지 않은 인증입니다.");
+                    JwtAuthenticationEntryPoint.writeError(response, ApiErrorCode.AUTH_INVALID);
                     log.warn("Attempt to use blacklisted token for path: {}", path);
                     return;
                 }
             } catch (Exception e) {
                 log.warn("JWT Authentication Error for path: {}", path);
-                JwtAuthenticationEntryPoint.writeError(response, "AUTH_INVALID", "유효하지 않은 인증입니다.");
+                JwtAuthenticationEntryPoint.writeError(response, ApiErrorCode.AUTH_INVALID);
                 return;
             }
         }

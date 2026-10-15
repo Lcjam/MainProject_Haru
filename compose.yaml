@@ -132,7 +132,8 @@ services:
       migrator:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8082/v3/api-docs >/dev/null"]
+      # Assist는 직접 포트 전체를 인증으로 보호하므로(공개 GET 없음) 401도 "응답 중"으로 본다.
+      test: ["CMD-SHELL", "code=$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8082/v3/api-docs) && { [ \"$$code\" = 401 ] || [ \"$$code\" = 200 ]; }"]
       interval: 10s
       timeout: 5s
       retries: 30

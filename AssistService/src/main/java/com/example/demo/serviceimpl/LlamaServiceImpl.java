@@ -4,11 +4,14 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+import java.net.URI;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.*;
@@ -22,7 +25,8 @@ import com.example.demo.model.ChatMessage;
 public class LlamaServiceImpl {
     private final CloudChatBotServiceImpl cloudChatBotServiceImpl;
     private final ChatMessageDAO chatMessageDAO;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate;
     
     
     // 게이트웨이(=FastAPI 챗봇 진입점) 주소. 환경설정에서 주입, 기본은 로컬.
@@ -73,7 +77,6 @@ public class LlamaServiceImpl {
         } catch (Exception e) {
             log.debug("=== 번역 에러 발생 ===");
             log.debug("번역 에러: " + e.getMessage());
-            e.printStackTrace();
             return text;
         }
     }
@@ -85,37 +88,25 @@ public class LlamaServiceImpl {
     private String translateApiEmail;
 
     private String translateChunk(String text, String sourceLang, String targetLang) throws Exception {
-        String encodedText = URLEncoder.encode(text, StandardCharsets.UTF_8);
-        // 빈 key/de(email) 를 그대로 붙이면 MyMemory 가 403 "INVALID EMAIL PROVIDED" 로 거부한다.
-        // 자격증명이 설정된 경우에만 파라미터를 추가(미설정 시 익명 호출 = 저용량 정상 동작).
-        StringBuilder urlBuilder = new StringBuilder(String.format(
-            "https://api.mymemory.translated.net/get?q=%s&langpair=%s|%s",
-            encodedText, sourceLang, targetLang
-        ));
+        UriComponentsBuilder uri = UriComponentsBuilder.fromHttpUrl("https://api.mymemory.translated.net/get")
+                .queryParam("q", "{text}")
+                .queryParam("langpair", "{languages}");
+        Map<String, String> parameters = new HashMap<>();
+        parameters.put("text", text);
+        parameters.put("languages", sourceLang + "|" + targetLang);
         if (translateApiKey != null && !translateApiKey.isBlank()) {
-            urlBuilder.append("&key=").append(URLEncoder.encode(translateApiKey, StandardCharsets.UTF_8));
+            uri.queryParam("key", "{key}");
+            parameters.put("key", translateApiKey);
         }
         if (translateApiEmail != null && !translateApiEmail.isBlank()) {
-            urlBuilder.append("&de=").append(URLEncoder.encode(translateApiEmail, StandardCharsets.UTF_8));
+            uri.queryParam("de", "{email}");
+            parameters.put("email", translateApiEmail);
         }
-        String urlStr = urlBuilder.toString();
-        
-        URL url = new URL(urlStr);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
-       
-
-        StringBuilder response = new StringBuilder();
-        try (BufferedReader br = new BufferedReader(
-                new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                response.append(line);
-            }
-        }
-
-        JsonNode jsonResponse = objectMapper.readTree(response.toString());
+        URI url = uri.encode().buildAndExpand(parameters).toUri();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.USER_AGENT, "Mozilla/5.0");
+        String body = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class).getBody();
+        JsonNode jsonResponse = objectMapper.readTree(body);
         String translatedText = jsonResponse.get("responseData").get("translatedText").asText();
         
         // JSON 형식이 포함된 경우 제거
@@ -182,8 +173,7 @@ public class LlamaServiceImpl {
             
             return response;
         } catch (Exception e) {
-            log.error("Chat 처리 중 에러 발생: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Chat 처리 중 에러 발생", e);
             return "죄송합니다. 서비스 오류가 발생했습니다: " + e.getMessage();
         }
     }
@@ -210,67 +200,25 @@ public class LlamaServiceImpl {
             assistantChatMessage.setContent(assistantResponse);
             chatMessageDAO.saveMessage(assistantChatMessage);
         } catch (Exception e) {
-            e.printStackTrace();
-            log.error("채팅 저장 중 오류 발생: " + e.getMessage());
+            log.error("채팅 저장 중 오류 발생", e);
         }
     }
 
     private String processWithLlama(String englishMessage, String sessionId, List<Map<String, String>> history) {
         try {
-            URL url = new URL(gatewayUri + "/api/fastapi/chat");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setDoOutput(true);
-
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("message", englishMessage);
-            requestBody.put("sessionId", sessionId);
-            requestBody.put("history", history);          
-           
-
-            String jsonInputString = objectMapper.writeValueAsString(requestBody);
-            log.debug("Python 서버로 보내는 데이터: " + jsonInputString);
-            
-            try (OutputStreamWriter writer = new OutputStreamWriter(conn.getOutputStream())) {
-                writer.write(jsonInputString);
-            }
-
-            if (conn.getResponseCode() >= 400) {
-                try (BufferedReader br = new BufferedReader(
-                        new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8))) {
-                    StringBuilder errorResponse = new StringBuilder();
-                    String line;
-                    while ((line = br.readLine()) != null) {
-                        errorResponse.append(line);
-                    }
-                    log.debug("Python 서버 에러 응답: " + errorResponse.toString());
-                    return "An error occurred while processing your request.";
-                }
-            }
-
-            // LLaMA 응답 읽기
-            StringBuilder response = new StringBuilder();
-            try (BufferedReader br = new BufferedReader(
-                    new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    response.append(line);
-                }
-            }
-
-            // JSON 응답 파싱
-            JsonNode jsonResponse = objectMapper.readTree(response.toString());
-            String englishResponse = jsonResponse.get("response").asText();
-            log.debug("영어 응답: " + englishResponse);
-
-            return englishResponse;  // 영어 응답만 반환
-            
+            Map<String, Object> requestBody = Map.of(
+                    "message", englishMessage, "sessionId", sessionId, "history", history);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            String body = restTemplate.postForObject(gatewayUri + "/api/fastapi/chat",
+                    new HttpEntity<>(requestBody, headers), String.class);
+            return objectMapper.readTree(body).get("response").asText();
+        } catch (HttpStatusCodeException e) {
+            log.warn("Python 서버 에러 응답: {}", e.getStatusCode());
+            return "An error occurred while processing your request.";
         } catch (Exception e) {
-            log.debug("=== LlamaService 에러 발생 ===");
-            log.debug("에러 메시지: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Llama 서비스 호출 실패", e);
             return "죄송합니다. 서비스 오류가 발생했습니다: " + e.getMessage();
         }
     }
-} 
+}

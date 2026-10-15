@@ -10,7 +10,7 @@ import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.User;
 import com.example.demo.security.JwtTokenBlacklistService;
 import com.example.demo.security.JwtTokenProvider;
-import com.example.demo.util.PasswordUtils;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.example.demo.util.TokenUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +29,7 @@ import java.util.Date;
 public class AuthService {
 
     private final UserMapper userMapper;
-    private final PasswordUtils passwordUtils;
+    private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtTokenBlacklistService jwtTokenBlacklistService;
     private final TokenUtils tokenUtils;
@@ -124,7 +124,7 @@ public class AuthService {
             }
 
             // 비밀번호 해싱
-            String hashedPassword = passwordUtils.hashPassword(request.getPassword(), null).get("hashedPassword");
+            String hashedPassword = passwordEncoder.encode(request.getPassword());
 
             // 현재 시간 설정
             LocalDateTime now = LocalDateTime.now();
@@ -223,11 +223,7 @@ public class AuthService {
         }
 
         // 비밀번호 검증
-        boolean isPasswordValid = passwordUtils.verifyPassword(
-                request.getPassword(),
-                user.getPasswordHash(),
-                null
-        );
+        boolean isPasswordValid = passwordEncoder.matches(request.getPassword(), user.getPasswordHash());
 
         if (!isPasswordValid) {
             // 로그인 실패 횟수 증가

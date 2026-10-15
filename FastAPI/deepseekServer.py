@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 from llama_cpp import Llama
@@ -37,7 +37,7 @@ llm = Llama(
 # 요청 모델 정의
 class ChatRequest(BaseModel):
     message: str
-    history: List[Dict[str, str]] = []
+    history: List[Dict[str, str]] = Field(default_factory=list)
 
 @app.post("/chat")
 async def chat(request: ChatRequest):

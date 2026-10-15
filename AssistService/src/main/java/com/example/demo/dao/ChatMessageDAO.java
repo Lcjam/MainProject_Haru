@@ -2,8 +2,11 @@ package com.example.demo.dao;
 
 import com.example.demo.model.ChatMessage;
 import java.util.List;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
+@Mapper
 public interface ChatMessageDAO {
     void saveMessage(ChatMessage message);
-    List<ChatMessage> getMessagesBySessionId(String sessionId);
+    List<ChatMessage> getMessagesBySessionId(@Param("sessionId") String sessionId);
 } 

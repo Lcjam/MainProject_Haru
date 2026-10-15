@@ -8,6 +8,7 @@ import com.example.demo.mapper.Market.TransactionsMapper;
 import com.example.demo.mapper.Market.UserLocationMapper;
 import com.example.demo.model.Market.UserLocation;
 import com.example.demo.service.ChatService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.demo.service.NotificationService;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +26,7 @@ class ProductServiceNearbyLocationTest {
     private final UserLocationMapper locations = mock(UserLocationMapper.class);
     private final ProductService service = new ProductService(products, mock(ProductRequestMapper.class),
             mock(ChatRoomMapper.class), mock(ProductImageMapper.class), mock(NotificationService.class),
-            mock(ImageUploadService.class), mock(ChatService.class), mock(TransactionsMapper.class), locations);
+            mock(ImageUploadService.class), mock(ChatService.class), mock(TransactionsMapper.class), locations, new ObjectMapper());
 
     @Test
     void missingOrExpiredLocationReturnsBadRequest() {

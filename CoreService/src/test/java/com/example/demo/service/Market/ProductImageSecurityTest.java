@@ -26,7 +26,7 @@ class ProductImageSecurityTest {
     private final ImageUploadService uploads = mock(ImageUploadService.class);
     private final ProductService service = new ProductService(products, mock(ProductRequestMapper.class),
             mock(ChatRoomMapper.class), images, mock(NotificationService.class), uploads,
-            mock(ChatService.class), mock(TransactionsMapper.class), mock(UserLocationMapper.class));
+            mock(ChatService.class), mock(TransactionsMapper.class), mock(UserLocationMapper.class), new com.fasterxml.jackson.databind.ObjectMapper());
 
     @Test
     void hiddenProductImageIsNotPublic() throws Exception {

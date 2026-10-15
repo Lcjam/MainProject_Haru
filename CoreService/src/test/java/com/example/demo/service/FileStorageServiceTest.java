@@ -12,6 +12,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -93,6 +97,74 @@ class FileStorageServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> storage.resolveStoredPath("/board-images/30/" + profile));
     }
+
+    @Test
+    void rejectsEmptyOversizedAndInvalidImagesAcrossUploadEntryPoints() {
+        FileStorageService storage = storage(root, PNG.length);
+        for (MockMultipartFile file : new MockMultipartFile[] {
+                image("empty.png", "image/png", new byte[0]),
+                image("large.png", "image/png", new byte[PNG.length + 1]),
+                image("invalid.exe", "image/png", PNG)
+        }) {
+            assertThrows(IllegalArgumentException.class, () -> storage.storeProfileImage(file, "owner@haru.test"));
+            assertThrows(IllegalArgumentException.class, () -> storage.storeFile(file, "board-images/7", file.getOriginalFilename()));
+            assertThrows(IllegalArgumentException.class, () -> storage.storeBoardFile(file, 7L, "image"));
+        }
+    }
+
+    @Test
+    void copiesTheClasspathDefaultImageAndNeverDeletesIt() throws IOException {
+        FileStorageService storage = storage(root, 1024);
+        try (InputStream expected = getClass().getResourceAsStream("/static/images/default-profile.png")) {
+            assertArrayEquals(expected.readAllBytes(), Files.readAllBytes(storage.getProfileImagePath(null)));
+        }
+        storage.deleteProfileImage("default-profile.png");
+        assertTrue(Files.size(storage.getProfileImagePath(null)) > 0);
+    }
+
+    @Test
+    void defaultImageCanBeCopiedFromAJarResource() throws Exception {
+        String resource = "static/images/default-profile.png";
+        String fixtureName = JarStorage.class.getName();
+        String fixtureEntry = fixtureName.replace('.', '/') + ".class";
+        Path jar = root.resolve("image-fixture.jar");
+        byte[] expected;
+        try (InputStream source = getClass().getResourceAsStream("/" + resource)) {
+            expected = source.readAllBytes();
+        }
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+            output.putNextEntry(new JarEntry(resource));
+            output.write(expected);
+            output.closeEntry();
+            output.putNextEntry(new JarEntry(fixtureEntry));
+            try (InputStream source = getClass().getResourceAsStream("/" + fixtureEntry)) {
+                source.transferTo(output);
+            }
+            output.closeEntry();
+        }
+        // The subclass lives in the JAR, so getClass().getResourceAsStream uses its JAR resource.
+        try (URLClassLoader loader = new URLClassLoader(new URL[] {jar.toUri().toURL()}, getClass().getClassLoader()) {
+            @Override protected synchronized Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+                if (!fixtureName.equals(name)) return super.loadClass(name, resolve);
+                Class<?> loaded = findLoadedClass(name);
+                if (loaded == null) loaded = findClass(name);
+                if (resolve) resolveClass(loaded);
+                return loaded;
+            }
+            @Override public URL getResource(String name) {
+                return resource.equals(name) ? findResource(name) : super.getResource(name);
+            }
+        }) {
+            assertTrue(loader.getResource(resource).toString().startsWith("jar:"));
+            FileStorageService storage = (FileStorageService) loader.loadClass(fixtureName).getConstructor().newInstance();
+            ReflectionTestUtils.setField(storage, "uploadRoot", root.resolve("jar-storage").toString());
+            ReflectionTestUtils.setField(storage, "defaultProfileImage", "default-profile.png");
+            storage.init();
+            assertArrayEquals(expected, Files.readAllBytes(storage.getProfileImagePath(null)));
+        }
+    }
+
+    public static class JarStorage extends FileStorageService { }
 
     private FileStorageService storage(Path root, long maxSize) {
         FileStorageService storage = new FileStorageService();

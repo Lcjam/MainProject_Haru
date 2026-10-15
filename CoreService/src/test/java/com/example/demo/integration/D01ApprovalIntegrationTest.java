@@ -10,6 +10,7 @@ import com.example.demo.mapper.Market.ProductRequestMapper;
 import com.example.demo.mapper.Market.TransactionsMapper;
 import com.example.demo.mapper.Market.UserLocationMapper;
 import com.example.demo.service.ChatService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.demo.service.NotificationService;
 import com.example.demo.service.Market.ImageUploadService;
 import com.example.demo.service.Market.ProductService;
@@ -209,7 +210,7 @@ class D01ApprovalIntegrationTest {
                 database.sqlSession().getMapper(ProductRequestMapper.class),
                 database.sqlSession().getMapper(ChatRoomMapper.class),
                 mock(ProductImageMapper.class), notificationService, mock(ImageUploadService.class),
-                mock(ChatService.class), transactions, mock(UserLocationMapper.class));
+                mock(ChatService.class), transactions, mock(UserLocationMapper.class), new ObjectMapper());
         TransactionInterceptor interceptor = new TransactionInterceptor(
                 new DataSourceTransactionManager(database.dataSource()),
                 new AnnotationTransactionAttributeSource());

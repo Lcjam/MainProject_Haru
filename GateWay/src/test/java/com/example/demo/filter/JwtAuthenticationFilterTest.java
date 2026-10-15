@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JwtAuthenticationFilterTest {
 
-    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter();
+    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(new ObjectMapper());
 
     JwtAuthenticationFilterTest() {
         ReflectionTestUtils.setField(filter, "secretKey", "test-secret-for-gateway-auth-contract");

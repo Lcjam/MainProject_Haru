@@ -150,7 +150,7 @@ class LegacyImageCompatibilityTest {
         when(products.findById(42L, null)).thenReturn(Product.builder().id(42L).isVisible(true).build());
         ProductService service = new ProductService(products, mock(ProductRequestMapper.class), mock(ChatRoomMapper.class),
                 productImages, mock(NotificationService.class), new ImageUploadService(files), mock(ChatService.class),
-                mock(TransactionsMapper.class), mock(UserLocationMapper.class));
+                mock(TransactionsMapper.class), mock(UserLocationMapper.class), new com.fasterxml.jackson.databind.ObjectMapper());
         ProductController controller = new ProductController(service, mock(JwtTokenProvider.class));
         assertEquals(200, controller.getProductImage(7L).getStatusCode().value());
         when(products.findById(42L, null)).thenReturn(Product.builder().id(42L).isVisible(false).build());

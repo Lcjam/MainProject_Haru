@@ -21,7 +21,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from llama_cpp import Llama
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # 로깅 설정
 logging.basicConfig(
@@ -110,7 +110,7 @@ FAQ:
 
 class ChatRequest(BaseModel):
     message: str
-    history: list = []
+    history: list = Field(default_factory=list)
     sessionId: str  # AssistService 가 사용자 이메일을 세션 ID로 전달
 
 

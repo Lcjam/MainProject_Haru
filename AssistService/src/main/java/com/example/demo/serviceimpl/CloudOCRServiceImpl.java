@@ -39,7 +39,6 @@ public class CloudOCRServiceImpl {
 
             // 2. Base64 인코딩
             String imageBase64 = Base64.getEncoder().encodeToString(file.getBytes());
-            log.info("Base64 인코딩 길이: {}", imageBase64.length());
 
             // 3. API 요청 바디 생성
             Map<String, Object> requestBody = new HashMap<>();
@@ -78,18 +77,6 @@ public class CloudOCRServiceImpl {
                 log.info("OCR 요청 성공");
                 JsonNode responseJson = objectMapper.readTree(response.getBody());
                 
-                JsonNode images = responseJson.path("images");
-                if (images.isArray() && images.size() > 0) {
-                    JsonNode image = images.get(0);
-                    log.info("인식 결과: {}", image.path("inferResult").asText());
-                    log.info("matchedTemplate.id : {}", image.path("matchedTemplate.id").asText());
-
-                    JsonNode fields = image.path("fields");
-                    if (fields.isArray()) {
-                        log.info("추출된 필드 수: {}", fields.size());
-                    }
-                }
-                
                 String extractedText = extractText(responseJson);
                 return extractedText;
             }
@@ -109,8 +96,6 @@ public class CloudOCRServiceImpl {
     
         if (images.isArray()) {
             for (JsonNode image : images) {
-                log.info("인식 결과: {}", image.path("inferResult").asText());
-    
                 if (!"SUCCESS".equals(image.path("inferResult").asText())) {
                     log.warn("OCR 인식 실패");
                     continue;
@@ -118,7 +103,6 @@ public class CloudOCRServiceImpl {
     
                 JsonNode fields = image.path("fields");
                 if (fields.isArray() && fields.size() > 0) {
-                    log.info("추출된 필드 개수: {}", fields.size());
                     for (JsonNode field : fields) {
                         String text = field.path("inferText").asText();
                         result.append(text).append(" ");

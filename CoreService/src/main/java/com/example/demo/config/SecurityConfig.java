@@ -4,6 +4,7 @@ import com.example.demo.security.JwtAuthenticationFilter;
 import com.example.demo.security.JwtTokenBlacklistService;
 import com.example.demo.security.JwtTokenProvider;
 import com.example.demo.security.JwtAuthenticationEntryPoint;
+import com.example.demo.exception.ApiErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
@@ -37,7 +38,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .securityContext(context -> context.securityContextRepository(new NullSecurityContextRepository()))
                 .exceptionHandling(
-                        exceptionHandling -> exceptionHandling.authenticationEntryPoint(jwtAuthenticationEntryPoint))
+                        exceptionHandling -> exceptionHandling.authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                                .accessDeniedHandler((request, response, exception) ->
+                                        JwtAuthenticationEntryPoint.writeError(response, ApiErrorCode.FORBIDDEN)))
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

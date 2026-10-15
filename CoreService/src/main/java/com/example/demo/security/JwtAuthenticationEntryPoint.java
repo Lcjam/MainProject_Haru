@@ -1,11 +1,11 @@
 package com.example.demo.security;
 
 import com.example.demo.dto.response.ApiResponse;
+import com.example.demo.exception.ApiErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -21,14 +21,14 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) throws IOException, ServletException {
-        writeError(response, "AUTH_REQUIRED", "로그인이 필요합니다.");
+        writeError(response, ApiErrorCode.AUTH_REQUIRED);
     }
 
-    static void writeError(HttpServletResponse response, String code, String message) throws IOException {
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+    public static void writeError(HttpServletResponse response, ApiErrorCode code) throws IOException {
+        response.setStatus(code.httpStatus());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        ApiResponse<?> errorResponse = ApiResponse.error(message, code);
+        ApiResponse<?> errorResponse = ApiResponse.error(code.message(), code.name());
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }
 }

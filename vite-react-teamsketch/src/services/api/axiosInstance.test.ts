@@ -44,9 +44,20 @@ describe('axiosInstance response interceptor', () => {
     expect(responseHandler.fulfilled(response)).toBe(response);
   });
 
-  it("body.status가 'error'면 reject", async () => {
-    const response = { data: { status: 'error', message: '실패' } };
-    await expect(responseHandler.fulfilled(response) as Promise<unknown>).rejects.toThrow('실패');
+  it("body.status가 'error'면 ApiError로 reject되며 code와 status가 보존된다", async () => {
+    const response = {
+      status: 200,
+      data: { status: 'error', code: 'DUPLICATE_EMAIL', message: '이미 가입된 이메일입니다.' }
+    };
+    try {
+      await (responseHandler.fulfilled(response) as Promise<unknown>);
+      expect.unreachable('Should have rejected');
+    } catch (err: any) {
+      expect(err.name).toBe('ApiError');
+      expect(err.message).toBe('이미 가입된 이메일입니다.');
+      expect(err.code).toBe('DUPLICATE_EMAIL');
+      expect(err.status).toBe(200);
+    }
   });
 
   it('401 + AUTH_EXPIRED면 메시지 문구와 관계없이 계정 상태를 지운다', async () => {
@@ -75,5 +86,22 @@ describe('axiosInstance response interceptor', () => {
     } };
     await expect(responseHandler.rejected(error) as Promise<unknown>).rejects.toBe(error);
     expect(localStorage.getItem('token')).toBeNull();
+  });
+
+  it('401 + 레거시 숫자 코드 "401"은 AUTH_REQUIRED로 정규화되어 계정 상태를 지우지 않는다', async () => {
+    localStorage.setItem('token', 'jwt-abc');
+    const error = { config: { url: '/core/user' }, response: {
+      status: 401, data: { code: '401', message: '로그인이 필요합니다.' }
+    } };
+    await expect(responseHandler.rejected(error) as Promise<unknown>).rejects.toBe(error);
+    expect(localStorage.getItem('token')).toBe('jwt-abc');
+  });
+
+  it('503 및 504 오류도 정상 reject된다', async () => {
+    const error503 = { config: { url: '/test' }, response: { status: 503, data: { code: 'UPSTREAM_UNAVAILABLE' } } };
+    const error504 = { config: { url: '/test' }, response: { status: 504, data: { code: 'UPSTREAM_TIMEOUT' } } };
+
+    await expect(responseHandler.rejected(error503) as Promise<unknown>).rejects.toBe(error503);
+    await expect(responseHandler.rejected(error504) as Promise<unknown>).rejects.toBe(error504);
   });
 });

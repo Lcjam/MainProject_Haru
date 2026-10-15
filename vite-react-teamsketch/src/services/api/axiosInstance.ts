@@ -2,14 +2,8 @@ import axios, { AxiosInstance } from 'axios';
 import { apiConfig } from './apiConfig';
 import { store } from '../../store/store';
 import { logout } from '../../store/slices/authSlice';
-// 1번 이미 있는 인스턴스 사용하면 됨됨
-// API 응답 타입 정의
-interface ApiResponse<T = any> {
-  status: 'success' | 'error';
-  data?: T;
-  message?: string;
-  code?: string;
-}
+import { ApiResponse, ApiError } from '../../types/api';
+import { getErrorCode, ERROR_CODES } from '../../utils/errorMessage';
 
 // 에러 메시지 중복 방지를 위한 변수
 let isErrorToastShown = false;
@@ -83,8 +77,10 @@ const setupInterceptors = (instance: AxiosInstance) => {
   instance.interceptors.response.use(
     (response) => {
       const apiResponse = response.data as ApiResponse;
-      if (apiResponse.status === 'error') {
-        return Promise.reject(new Error(apiResponse.message || '요청을 처리하지 못했습니다.'));
+      if (apiResponse && apiResponse.status === 'error') {
+        const code = getErrorCode(apiResponse) || (typeof apiResponse.code === 'string' ? apiResponse.code : undefined);
+        const message = apiResponse.message || (code && ERROR_CODES[code as keyof typeof ERROR_CODES]?.message) || '요청을 처리하지 못했습니다.';
+        return Promise.reject(new ApiError(message, code, response.status, apiResponse));
       }
       return response;
     },
@@ -93,15 +89,17 @@ const setupInterceptors = (instance: AxiosInstance) => {
         const url = error.config?.url || '';
         
         switch (error.response.status) {
-          case 401:
+          case 401: {
             // 인증 오류 코드는 Gateway/Core/Assist가 공유한다.
-            if (['AUTH_EXPIRED', 'AUTH_INVALID'].includes(error.response.data?.code)) {
+            const code = getErrorCode(error);
+            if (code === 'AUTH_EXPIRED' || code === 'AUTH_INVALID') {
               store.dispatch(logout());
               showErrorToast('인증이 유효하지 않습니다. 다시 로그인해주세요.');
             } else {
               console.log(error.response.data?.message || '인증 오류가 발생했습니다.');
             }
             break;
+          }
           case 403:
             console.log('접근 권한이 없습니다.');
             break;
@@ -118,6 +116,12 @@ const setupInterceptors = (instance: AxiosInstance) => {
             break;
           case 500:
             console.log('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+            break;
+          case 503:
+            console.log('서비스에 일시적으로 연결할 수 없습니다.');
+            break;
+          case 504:
+            console.log('서비스 응답이 지연되고 있습니다.');
             break;
           default:
             console.log('오류가 발생했습니다.');

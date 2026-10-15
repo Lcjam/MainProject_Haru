@@ -1,5 +1,6 @@
 package com.example.demo.filter;
 
+import com.example.demo.common.ErrorCode;
 import com.example.demo.dto.CommonResponseDTO;
 import com.example.demo.util.TokenUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -73,16 +74,15 @@ public class AssistAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void writeError(HttpServletResponse response, String code) throws IOException {
-        String message = switch (code) {
-            case "AUTH_EXPIRED" -> "인증이 만료되었습니다.";
-            case "AUTH_REQUIRED" -> "로그인이 필요합니다.";
-            default -> "유효하지 않은 인증입니다.";
+        ErrorCode errorCode = switch (code) {
+            case "AUTH_EXPIRED" -> ErrorCode.AUTH_EXPIRED;
+            case "AUTH_REQUIRED" -> ErrorCode.AUTH_REQUIRED;
+            default -> ErrorCode.AUTH_INVALID;
         };
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setStatus(errorCode.getStatus());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        JSON.writeValue(response.getWriter(), CommonResponseDTO.builder()
-                .status("error").code(code).message(message).build());
+        JSON.writeValue(response.getWriter(), CommonResponseDTO.error(errorCode));
     }
 
     private boolean invalidPath(String path) {

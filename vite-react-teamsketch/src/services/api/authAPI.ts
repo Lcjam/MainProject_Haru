@@ -2,8 +2,8 @@ import { useMutation } from '@tanstack/react-query';
 import { axiosInstance } from './axiosInstance';
 import { apiConfig } from './apiConfig';
 import { SignupForm, ProfileUpdateRequest } from '../../types/auth';
-import { IPasswordChange } from '../../types/passwordChange'
-import { getErrorMessage, getErrorCode } from '../../utils/errorMessage';
+import { IPasswordChange } from '../../types/passwordChange';
+import { getErrorMessage } from '../../utils/errorMessage';
 
 
 interface LoginCredentials {
@@ -262,19 +262,7 @@ export const usePasswordChangeNT = () => {
 // 회원가입 Hook
 export const useSignup = () => {
   return useMutation({
-    mutationFn: signupApi,
-    onError: (error: unknown) => {
-      // axiosInstance에서 기본 에러 처리를 하지만,
-      // 회원가입 특화된 에러 처리가 필요한 경우 여기서 처리
-      const code = getErrorCode(error);
-      if (code === 'DUPLICATE_EMAIL') {
-        throw new Error('이미 사용 중인 이메일입니다.');
-      }
-      if (code === 'DUPLICATE_ID') {
-        throw new Error('이미 사용 중인 아이디입니다.');
-      }
-      throw error;
-    }
+    mutationFn: signupApi
   });
 };
 

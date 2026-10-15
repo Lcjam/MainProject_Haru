@@ -4,6 +4,7 @@ import com.example.demo.dto.profile.*;
 import com.example.demo.dto.hobby.*;
 import com.example.demo.dto.auth.*;
 import com.example.demo.mapper.UserMapper;
+import com.example.demo.exception.ApiErrorCode;
 import com.example.demo.model.User;
 import com.example.demo.model.UserHobby;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -162,6 +163,7 @@ public class ProfileService {
             if (existingUser != null) {
                 return ProfileUpdateResponse.builder()
                         .success(false)
+                        .errorCode(ApiErrorCode.DUPLICATE_NICKNAME)
                         .message("이미 사용 중인 닉네임입니다.")
                         .build();
             }

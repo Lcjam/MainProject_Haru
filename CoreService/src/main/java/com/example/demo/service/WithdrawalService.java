@@ -6,7 +6,7 @@ import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.User;
 import com.example.demo.security.JwtTokenBlacklistService;
 import com.example.demo.security.JwtTokenProvider;
-import com.example.demo.util.PasswordUtils;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.example.demo.util.RandomUtils;
 import com.example.demo.util.TokenUtils;
 
@@ -26,7 +26,7 @@ public class WithdrawalService {
     
     private final UserMapper userMapper;
     private final TokenUtils tokenUtils;
-    private final PasswordUtils passwordUtils;
+    private final PasswordEncoder passwordEncoder;
     private final JwtTokenBlacklistService jwtTokenBlacklistService;
     private final JwtTokenProvider jwtTokenProvider;
     private final FileStorageService fileStorageService;
@@ -55,11 +55,7 @@ public class WithdrawalService {
                         .build();
             }
             
-            boolean isPasswordValid = passwordUtils.verifyPassword(
-                    request.getPassword(),
-                    user.getPasswordHash(),
-                    null
-            );
+            boolean isPasswordValid = passwordEncoder.matches(request.getPassword(), user.getPasswordHash());
             
             if (!isPasswordValid) {
                 return WithdrawalResponse.builder()

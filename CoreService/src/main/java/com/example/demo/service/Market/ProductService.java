@@ -52,6 +52,7 @@ public class ProductService {
     private final ChatService chatService;
     private final TransactionsMapper transactionsMapper;
     private final UserLocationMapper userLocationMapper;
+    private final ObjectMapper objectMapper;
 
     /** 전체 상품 목록 조회 (등록자 상품 조회 항상가능, 비로그인자 모집 중인 상품 조회 가능) **/
     public ResponseEntity<BaseResponse<List<ProductResponse>>> getAllProducts(String email) {
@@ -78,7 +79,6 @@ public class ProductService {
                         .body(new BaseResponse<>(null, "대면 거래의 경우 위치 정보는 필수 입력 값입니다."));
             }
 
-            ObjectMapper objectMapper = new ObjectMapper();
             String daysJson = objectMapper.writeValueAsString(request.getDays()); // List<String> → JSON 변환
 
             // 상품 정보 저장
@@ -528,10 +528,9 @@ public class ProductService {
         List<String> daysList = null;
         if (product.getDays() != null) {
             try {
-                ObjectMapper objectMapper = new ObjectMapper();
                 daysList = objectMapper.readValue(product.getDays(), new TypeReference<List<String>>() {});
             } catch (Exception e) {
-                e.printStackTrace();
+                log.warn("상품 요일 JSON 파싱 실패: productId={}", product.getId(), e);
             }
         }
         return ProductResponse.builder()

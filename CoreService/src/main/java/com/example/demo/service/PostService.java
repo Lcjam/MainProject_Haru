@@ -77,22 +77,7 @@ public class PostService {
         Post savedPost = postMapper.getPostById(post.getId());
         
         // 응답 데이터 생성
-        return PostResponse.builder()
-                .id(savedPost.getId())
-                .boardId(savedPost.getBoardId())
-                .boardName(savedPost.getBoardName())
-                .authorEmail(savedPost.getAuthorEmail())
-                .authorName(savedPost.getAuthorName())
-                .authorNickname(savedPost.getAuthorNickname())
-                .authorProfileImage(savedPost.getAuthorProfileImage())
-                .title(savedPost.getTitle())
-                .content(savedPost.getContent())
-                .createdAt(savedPost.getCreatedAt())
-                .updatedAt(savedPost.getUpdatedAt())
-                .viewCount(savedPost.getViewCount())
-                .likeCount(savedPost.getLikeCount())
-                .commentCount(savedPost.getCommentCount())
-                .imageUrls(savedImageUrls)
+        return postResponse(savedPost, savedImageUrls)
                 .isAuthor(true) // 작성자 본인이므로 true
                 .build();
     }
@@ -138,22 +123,7 @@ public class PostService {
         Post updatedPost = postMapper.getPostById(postId);
         
         // 응답 데이터 생성
-        return PostResponse.builder()
-                .id(updatedPost.getId())
-                .boardId(updatedPost.getBoardId())
-                .boardName(updatedPost.getBoardName())
-                .authorEmail(updatedPost.getAuthorEmail())
-                .authorName(updatedPost.getAuthorName())
-                .authorNickname(updatedPost.getAuthorNickname())
-                .authorProfileImage(updatedPost.getAuthorProfileImage())
-                .title(updatedPost.getTitle())
-                .content(updatedPost.getContent())
-                .createdAt(updatedPost.getCreatedAt())
-                .updatedAt(updatedPost.getUpdatedAt())
-                .viewCount(updatedPost.getViewCount())
-                .likeCount(updatedPost.getLikeCount())
-                .commentCount(updatedPost.getCommentCount())
-                .imageUrls(savedImageUrls)
+        return postResponse(updatedPost, savedImageUrls)
                 .isAuthor(true) // 작성자 본인이므로 true
                 .build();
     }
@@ -240,22 +210,8 @@ public class PostService {
         postMapper.increaseViewCount(postId);
         
         // 응답 데이터 생성
-        return PostResponse.builder()
-                .id(post.getId())
-                .boardId(post.getBoardId())
-                .boardName(post.getBoardName())
-                .authorEmail(post.getAuthorEmail())
-                .authorName(post.getAuthorName())
-                .authorNickname(post.getAuthorNickname())
-                .authorProfileImage(post.getAuthorProfileImage())
-                .title(post.getTitle())
-                .content(post.getContent())
-                .createdAt(post.getCreatedAt())
-                .updatedAt(post.getUpdatedAt())
-                .viewCount(post.getViewCount() + 1) // 증가된 조회수 반영
-                .likeCount(post.getLikeCount())
-                .commentCount(post.getCommentCount())
-                .imageUrls(imageUrls)
+        return postResponse(post, imageUrls)
+                .viewCount(post.getViewCount() + 1)
                 .isAuthor(post.getAuthorEmail().equals(email))
                 .build();
     }
@@ -296,22 +252,7 @@ public class PostService {
                     .map(PostImage::getImageUrl)
                     .collect(Collectors.toList());
             
-            return PostResponse.builder()
-                    .id(post.getId())
-                    .boardId(post.getBoardId())
-                    .boardName(post.getBoardName())
-                    .authorEmail(post.getAuthorEmail())
-                    .authorName(post.getAuthorName())
-                    .authorNickname(post.getAuthorNickname())
-                    .authorProfileImage(post.getAuthorProfileImage())
-                    .title(post.getTitle())
-                    .content(post.getContent())
-                    .createdAt(post.getCreatedAt())
-                    .updatedAt(post.getUpdatedAt())
-                    .viewCount(post.getViewCount())
-                    .likeCount(post.getLikeCount())
-                    .commentCount(post.getCommentCount())
-                    .imageUrls(imageUrls)
+            return postResponse(post, imageUrls)
                     .isAuthor(post.getAuthorEmail().equals(email))
                     .build();
         }).collect(Collectors.toList());
@@ -353,22 +294,7 @@ public class PostService {
                     .map(PostImage::getImageUrl)
                     .collect(Collectors.toList());
             
-            return PostResponse.builder()
-                    .id(post.getId())
-                    .boardId(post.getBoardId())
-                    .boardName(post.getBoardName())
-                    .authorEmail(post.getAuthorEmail())
-                    .authorName(post.getAuthorName())
-                    .authorNickname(post.getAuthorNickname())
-                    .authorProfileImage(post.getAuthorProfileImage())
-                    .title(post.getTitle())
-                    .content(post.getContent())
-                    .createdAt(post.getCreatedAt())
-                    .updatedAt(post.getUpdatedAt())
-                    .viewCount(post.getViewCount())
-                    .likeCount(post.getLikeCount())
-                    .commentCount(post.getCommentCount())
-                    .imageUrls(imageUrls)
+            return postResponse(post, imageUrls)
                     .isAuthor(post.getAuthorEmail().equals(email))
                     .build();
         }).collect(Collectors.toList());
@@ -443,22 +369,7 @@ public class PostService {
                             .map(PostImage::getImageUrl)
                             .collect(Collectors.toList());
                     
-                    return PostResponse.builder()
-                            .id(post.getId())
-                            .boardId(post.getBoardId())
-                            .boardName(post.getBoardName())
-                            .authorEmail(post.getAuthorEmail())
-                            .authorName(post.getAuthorName())
-                            .authorNickname(post.getAuthorNickname())
-                            .authorProfileImage(post.getAuthorProfileImage())
-                            .title(post.getTitle())
-                            .content(post.getContent())
-                            .createdAt(post.getCreatedAt())
-                            .updatedAt(post.getUpdatedAt())
-                            .viewCount(post.getViewCount())
-                            .likeCount(post.getLikeCount())
-                            .commentCount(post.getCommentCount())
-                            .imageUrls(imageUrls)
+                    return postResponse(post, imageUrls)
                             .isAuthor(post.getAuthorEmail().equals(email))
                             .build();
                 })
@@ -475,5 +386,24 @@ public class PostService {
                 .sortBy(sortBy)
                 .sortDirection(sortDirection)
                 .build();
+    }
+
+    private PostResponse.PostResponseBuilder postResponse(Post post, List<String> imageUrls) {
+        return PostResponse.builder()
+                .id(post.getId())
+                .boardId(post.getBoardId())
+                .boardName(post.getBoardName())
+                .authorEmail(post.getAuthorEmail())
+                .authorName(post.getAuthorName())
+                .authorNickname(post.getAuthorNickname())
+                .authorProfileImage(post.getAuthorProfileImage())
+                .title(post.getTitle())
+                .content(post.getContent())
+                .createdAt(post.getCreatedAt())
+                .updatedAt(post.getUpdatedAt())
+                .viewCount(post.getViewCount())
+                .likeCount(post.getLikeCount())
+                .commentCount(post.getCommentCount())
+                .imageUrls(imageUrls);
     }
 }

@@ -15,6 +15,7 @@ import com.example.demo.mapper.Market.ProductRequestMapper;
 import com.example.demo.mapper.Market.TransactionsMapper;
 import com.example.demo.mapper.Market.UserLocationMapper;
 import com.example.demo.service.ChatService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.demo.service.NotificationService;
 import com.example.demo.service.Market.ImageUploadService;
 import com.example.demo.service.Market.PaymentsService;
@@ -304,7 +305,7 @@ class D04TransactionPaymentIntegrationTest {
                 database.sqlSession().getMapper(ChatRoomMapper.class),
                 mock(ProductImageMapper.class), mock(NotificationService.class),
                 mock(ImageUploadService.class), mock(ChatService.class), transactionsMapper,
-                mock(UserLocationMapper.class)));
+                mock(UserLocationMapper.class), new ObjectMapper()));
     }
 
     private Long createAfter(CountDownLatch start) throws InterruptedException {

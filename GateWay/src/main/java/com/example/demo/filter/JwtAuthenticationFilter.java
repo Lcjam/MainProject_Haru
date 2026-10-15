@@ -27,7 +27,8 @@ import java.util.Set;
 @Component
 public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
     private static final Set<String> PUBLIC_ROUTES = Set.of(
             "POST /api/core/auth/signup", "POST /api/core/auth/login",
             "GET /api/core/auth/oauth2/google", "GET /api/core/auth/oauth2/naver",
@@ -42,8 +43,9 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
 
     public static class Config { }
 
-    public JwtAuthenticationFilter() {
+    public JwtAuthenticationFilter(ObjectMapper objectMapper) {
         super(Config.class);
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -114,7 +116,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
         try {
-            byte[] body = JSON.writeValueAsBytes(Map.of("status", "error", "code", code, "message", message));
+            byte[] body = objectMapper.writeValueAsBytes(Map.of("status", "error", "code", code, "message", message));
             DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(body);
             return exchange.getResponse().writeWith(Mono.just(buffer));
         } catch (Exception exception) {

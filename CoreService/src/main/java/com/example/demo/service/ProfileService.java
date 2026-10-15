@@ -6,7 +6,7 @@ import com.example.demo.dto.auth.*;
 import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.User;
 import com.example.demo.model.UserHobby;
-import com.example.demo.util.PasswordUtils;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.example.demo.util.TokenUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,7 @@ public class ProfileService {
 
     private final UserMapper userMapper;
     private final HobbyService hobbyService;
-    private final PasswordUtils passwordUtils;
+    private final PasswordEncoder passwordEncoder;
     private final TokenUtils tokenUtils;
     private final ProfileImageService profileImageService;
 
@@ -274,10 +274,7 @@ public class ProfileService {
         // 프론트에서 보낸 isToken이 true이니까
         if (request.getIsToken().equals("true")) {
             // 현재 비밀번호 확인 이곳을 실행합니다다
-            boolean isCurrentPasswordValid = passwordUtils.verifyPassword(
-                    request.getCurrentPassword(),
-                    user.getPasswordHash(),
-                    null);
+            boolean isCurrentPasswordValid = passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash());
 
             if (!isCurrentPasswordValid) {
                 return PasswordChangeResponse.builder()
@@ -306,7 +303,7 @@ public class ProfileService {
         }
 
         // 비밀번호 변경
-        String newPasswordHash = passwordUtils.hashPassword(request.getNewPassword(), null).get("hashedPassword");
+        String newPasswordHash = passwordEncoder.encode(request.getNewPassword());
         userMapper.updateUserPasswordHash(email, newPasswordHash);
         // 여기까지 오면 성공입니다다
         return PasswordChangeResponse.builder()

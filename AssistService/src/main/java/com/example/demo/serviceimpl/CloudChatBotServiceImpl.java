@@ -1,6 +1,5 @@
 package com.example.demo.serviceimpl;
 
-import com.example.demo.service.CloudChatBotService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -9,8 +8,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -20,7 +17,7 @@ import java.util.*;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class CloudChatBotServiceImpl implements CloudChatBotService {
+public class CloudChatBotServiceImpl {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -31,7 +28,6 @@ public class CloudChatBotServiceImpl implements CloudChatBotService {
     @Value("${naver.cloud.chatbot.api.url}")
     private String apiUrl;
 
-    @Override
     public String getResponse(String message) {
         try {
             String requestBody = getReqMessage(message);
@@ -68,8 +64,7 @@ public class CloudChatBotServiceImpl implements CloudChatBotService {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(secretKeySpec);
             byte[] signature = mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
-            String signatureHeader = Base64.getEncoder().encodeToString(signature);
-            return signatureHeader;
+            return Base64.getEncoder().encodeToString(signature);
         } catch (Exception e) {
             throw new RuntimeException("시그니처 생성 실패", e);
         }
@@ -77,28 +72,12 @@ public class CloudChatBotServiceImpl implements CloudChatBotService {
 
     private String getReqMessage(String message) {
         try {
-            JSONObject obj = new JSONObject();
-            long timestamp = System.currentTimeMillis();
-
-            obj.put("version", "v2");
-            obj.put("userId", "user-" + UUID.randomUUID().toString());
-            obj.put("timestamp", timestamp);
-
-            JSONObject bubbleObj = new JSONObject();
-            bubbleObj.put("type", "text");
-
-            JSONObject dataObj = new JSONObject();
-            dataObj.put("description", message);
-
-            bubbleObj.put("data", dataObj);
-
-            JSONArray bubblesArray = new JSONArray();
-            bubblesArray.put(bubbleObj);
-
-            obj.put("bubbles", bubblesArray);
-            obj.put("event", "send");
-
-            return obj.toString();
+            return objectMapper.writeValueAsString(Map.of(
+                    "version", "v2",
+                    "userId", "user-" + UUID.randomUUID(),
+                    "timestamp", System.currentTimeMillis(),
+                    "bubbles", List.of(Map.of("type", "text", "data", Map.of("description", message))),
+                    "event", "send"));
         } catch (Exception e) {
             throw new RuntimeException("요청 메시지 생성 실패", e);
         }

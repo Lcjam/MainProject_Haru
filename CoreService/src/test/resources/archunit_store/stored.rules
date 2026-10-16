@@ -1,0 +1,6 @@
+#
+#Fri Oct 16 13:00:37 KST 2026
+no\ classes\ that\ reside\ in\ a\ package\ '..controller..'\ should\ depend\ on\ classes\ that\ reside\ in\ any\ package\ ['..mapper..',\ '..dao..']=84db64d5-a464-46cd-b78a-425935281438
+no\ classes\ that\ do\ not\ have\ fully\ qualified\ name\ 'com.example.demo.util.BaseResponse'\ should\ depend\ on\ classes\ that\ have\ fully\ qualified\ name\ 'com.example.demo.util.BaseResponse'=763902f0-ece8-4b6f-8504-eadf2e4b5b07
+fields\ that\ are\ annotated\ with\ @Autowired\ should\ not\ be\ annotated\ with\ @Autowired=c100470f-7b92-4662-8081-2d1b03909ba7
+no\ classes\ that\ reside\ in\ a\ package\ '..service..'\ should\ depend\ on\ classes\ that\ have\ fully\ qualified\ name\ 'org.springframework.http.ResponseEntity'=0b613e5c-f61c-4c7b-a7f1-603a3ed55372

@@ -1,0 +1,3 @@
+Constructor <com.example.demo.controller.LlamaController.<init>(com.example.demo.serviceimpl.LlamaServiceImpl, com.example.demo.dao.ChatMessageDAO, com.example.demo.util.TokenUtils)> has parameter of type <com.example.demo.dao.ChatMessageDAO> in (LlamaController.java:0)
+Field <com.example.demo.controller.LlamaController.chatMessageDAO> has type <com.example.demo.dao.ChatMessageDAO> in (LlamaController.java:0)
+Method <com.example.demo.controller.LlamaController.chat(com.example.demo.dto.ChatRequestDTO, java.lang.String)> calls method <com.example.demo.dao.ChatMessageDAO.getMessagesBySessionId(java.lang.String)> in (LlamaController.java:66)

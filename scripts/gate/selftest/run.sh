@@ -17,6 +17,11 @@
 
 set -uo pipefail
 
+# git 훅(pre-push 등) 안에서 실행되면 git이 GIT_DIR·GIT_INDEX_FILE 등을 설정해 둔다. 이를 물려받으면
+# 다른 worktree에서 실행한 git 명령이 원래 저장소의 HEAD·인덱스를 조작한다(PR #10에서 자가 시험 커밋이 브랜치에 섞임).
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE GIT_QUARANTINE_PATH
+
 SLOW_MODE=0
 VERBOSE=0
 
@@ -58,7 +63,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "🚀 임시 worktree 생성 (HEAD 기준): $TEMP_WORKTREE"
-git worktree add --detach "$TEMP_WORKTREE" HEAD >/dev/null 2>&1
+git worktree add --detach "$TEMP_WORKTREE" HEAD >/dev/null 2>&1 || { echo "✗ 임시 worktree 생성 실패"; exit 1; }
 
 # 게이트 검사 도구 및 게이트 설정 파일 선별 복사 (동시 작업자 변경사항 오염 방지)
 cp -r "$REPO_ROOT/scripts" "$TEMP_WORKTREE/"
@@ -95,9 +100,16 @@ if [ -d "$REPO_ROOT/vite-react-teamsketch/node_modules" ]; then
 fi
 
 cd "$TEMP_WORKTREE"
+# 이후 모든 git 명령(reset --hard·clean·commit)이 반드시 임시 worktree를 대상으로 하는지 확인한다
+if [ "$(git rev-parse --show-toplevel)" != "$(cd "$TEMP_WORKTREE" && pwd -P)" ] || \
+   [ "$(git rev-parse --git-dir)" = "$(git -C "$REPO_ROOT" rev-parse --git-dir)" ]; then
+  echo "✗ git이 임시 worktree가 아닌 저장소를 가리킨다. 실제 저장소를 보호하기 위해 중단"
+  exit 1
+fi
 
 # 임시 worktree 안에서 게이트 기준 상태를 커밋(BASE_REF)으로 고정
 git add -A >/dev/null 2>&1
+git rm -r -q --cached --ignore-unmatch vite-react-teamsketch/node_modules >/dev/null 2>&1  # 링크는 .gitignore(node_modules/)에 안 걸린다
 # core.fileMode=false 저장소에서는 rsync로 복사한 실행 권한이 인덱스에 반영되지 않는다 → 원본 인덱스 모드를 그대로 복제
 git -C "$REPO_ROOT" ls-files -s | awk '$1=="100755"{print $4}' | while read -r f; do
   [ -e "$f" ] && git update-index --chmod=+x -- "$f"
@@ -715,6 +727,32 @@ run_scenario "H21" "게이트 스크립트 실행 비트 제거(staged)" "FAIL" 
   bash -c '
     printf "\n# h21\n" >> scripts/gate/e2e.sh
     git add scripts/gate/e2e.sh && git update-index --chmod=-x scripts/gate/e2e.sh
+    python3 scripts/gate/policy.py --staged
+  '
+
+
+# staged 모드의 테스트 수 기준 = main merge-base. main에 있던 테스트 삭제는 여전히 차단
+run_scenario "H22" "main에 있던 @Test 삭제(staged)" "FAIL" "test-count-decreased" \
+  bash -c '
+    t=CoreService/src/test/java/com/example/demo/util/TokenUtilsTest.java
+    python3 - "$t" <<PY
+import re, sys
+p = sys.argv[1]; s = open(p).read()
+first = s.index("    @Test"); second = s.index("    @Test", first + 1)
+s = s[:first] + s[second:]   # 첫 테스트 메서드를 통째로 삭제(@DisplayName 등 포함)
+open(p, "w").write(s)
+PY
+    git add "$t"
+    python3 scripts/gate/policy.py --staged
+  '
+
+# 양성 대조: 이 브랜치에서만 추가했던(main에 없는) 테스트를 지우는 것은 약화가 아니다
+run_scenario "H23" "양성 대조: 브랜치 전용 테스트 삭제(staged)" "PASS" "exit 0" \
+  bash -c '
+    t=CoreService/src/test/java/com/example/demo/util/H23Test.java
+    printf "package com.example.demo.util;\nclass H23Test {\n  @org.junit.jupiter.api.Test void t() { org.junit.jupiter.api.Assertions.assertEquals(1, 1); }\n}\n" > "$t"
+    git add "$t" && git commit -qm h23-base --no-verify
+    git rm -q "$t"
     python3 scripts/gate/policy.py --staged
   '
 

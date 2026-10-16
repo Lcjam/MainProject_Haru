@@ -10,6 +10,11 @@
 # base 기본값: origin/main. 실패한 단계가 있어도 끝까지 돌고 마지막에 요약 후 비정상 종료한다.
 set -uo pipefail
 
+# git 훅(pre-push 등) 안에서 실행되면 git이 GIT_DIR·GIT_INDEX_FILE 등을 설정해 둔다. 이를 물려받으면
+# 다른 worktree에서 실행한 git 명령이 원래 저장소의 HEAD·인덱스를 조작한다(PR #10에서 자가 시험 커밋이 브랜치에 섞임).
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE GIT_QUARANTINE_PATH
+
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
 MODE=${1:-worktree}

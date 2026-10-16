@@ -129,10 +129,15 @@ class ChangeSet:
         self.head = head
         if mode == "staged":
             self.base_ref = "HEAD"
+            # 테스트·단언 수는 main 기준으로 센다. main에 들어간 적 없는 테스트(이 브랜치에서 실수로 추가한 것)를
+            # 지우는 것은 약화가 아니다. pre-push·CI(merge-base 기준)와 판정을 맞춘다.
+            mb = subprocess.run(["git", "merge-base", "origin/main", "HEAD"], cwd=ROOT, capture_output=True, text=True)
+            self.count_ref = mb.stdout.strip() if mb.returncode == 0 and mb.stdout.strip() else "HEAD"
             diff_args = ["diff", "--cached"]
         else:
             mb = git("merge-base", base, head).strip()
             self.base_ref = mb
+            self.count_ref = mb
             diff_args = ["diff", mb] if mode == "worktree" else ["diff", mb, head]
         raw = git(*diff_args, "-M", "--no-color", "--no-ext-diff", "-U0", "--diff-filter=ACDMRT")
         self.files = self._parse(raw)
@@ -209,6 +214,14 @@ class ChangeSet:
             elif line.startswith("-"):
                 cur.removed.append(line[1:])
         return files
+
+    def count_text(self, path: str | None) -> str | None:
+        """테스트·단언 수 비교의 기준 내용(staged 모드는 main과의 merge-base, 그 외는 base_ref)."""
+        if not path:
+            return None
+        r = subprocess.run(["git", "show", f"{getattr(self, 'count_ref', self.base_ref)}:{path}"], cwd=ROOT,
+                           capture_output=True)
+        return r.stdout.decode("utf-8", "replace") if r.returncode == 0 else None
 
     def old_text(self, path: str | None) -> str | None:
         if not path:
@@ -483,12 +496,12 @@ def check(cs: ChangeSet) -> list[Finding]:
                                    f"프로덕션 코드가 테스트·fixture 경로를 가져온다: {', '.join(sorted(new_specs))} "
                                    "(커버리지·테스트 제외 경로로 업무 코드가 숨는다)"))
         if is_test_file(path) or (fc.old_path and is_test_file(fc.old_path)):
-            old_t = cs.old_text(fc.old_path or path) if fc.status != "A" else None
+            count_old = getattr(cs, "count_text", cs.old_text)
+            old_t = count_old(fc.old_path or path) if fc.status != "A" else None
             new_t = cs.new_text(path) if fc.status != "D" else None
             assert_delta[path] = len(ASSERTION.findall(strip_comments(new_t or ""))) - \
                 len(ASSERTION.findall(strip_comments(old_t or "")))
-            test_delta[path] = count_tests(cs.new_text(path) if fc.status != "D" else None, path) - \
-                count_tests(cs.old_text(fc.old_path or path) if fc.status != "A" else None, fc.old_path or path)
+            test_delta[path] = count_tests(new_t, path) - count_tests(old_t, fc.old_path or path)
 
         # ---- 줄 단위 ----
         is_md = path.endswith(".md")

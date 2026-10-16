@@ -162,6 +162,12 @@ public class ProductService {
                       .body(new BaseResponse<>(null, "해당 상품을 찾을 수 없습니다."));
           }
 
+          // shortcut: 동시 중복 신청은 막지 못하며, D06/D01에서 DB UNIQUE 제약으로 보완한다.
+          if (productRequestMapper.findRequestId(productId, requesterEmail) != null) {
+              return ResponseEntity.status(409)
+                      .body(BaseResponse.error("이미 신청한 상품입니다."));
+          }
+
           // 2. 상품 요청 등록 (구매 요청/판매 요청) & 모집 인원 증가
           productMapper.insertProductRequest(productId, requesterEmail);
           productMapper.increaseCurrentParticipants(productId);

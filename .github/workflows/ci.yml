@@ -1,17 +1,80 @@
 name: CI
 
+# 품질 게이트. 규칙의 단일 소스는 scripts/gate/** 이며 로컬(gate.sh)과 같은 스크립트를 실행한다.
+# 필수 체크(브랜치 보호): 아래 job name 전부. 이름을 바꾸면 보호 규칙도 같이 바꾼다.
+
 on:
   pull_request:
+    # labeled/unlabeled: 승인 라벨을 붙이거나 떼면 그 상태로 다시 판정한다(H01.6 R8)
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main]
 
 permissions:
   contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # PR 라벨 gate-change-approved 가 있을 때만 게이트 약화(보호 파일·동결 증가·하한 하향)를 경고로 낮춘다.
+  # push(main)는 아래 policy 잡에서 그 커밋을 만든 PR의 라벨을 조회해 다시 정한다.
+  GATE_APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'gate-change-approved') && '1' || '0' }}
 
 jobs:
+  policy:
+    name: Policy gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Resolve diff base
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            echo "ref=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+          elif git cat-file -e "${{ github.event.before }}^{commit}" 2>/dev/null; then
+            echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=HEAD~1" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Approval for push (label of the PR that produced this commit)
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # main은 보호 브랜치라 PR 머지로만 바뀐다. 그 PR에 승인 라벨이 있었는지 확인한다(직접 푸시면 0).
+          labels=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+            --jq '[.[] | select(.merged_at != null) | .labels[].name] | join(",")')
+          echo "merged PR labels: ${labels:-<none>}"
+          case ",$labels," in *,gate-change-approved,*) echo "GATE_APPROVED=1" >> "$GITHUB_ENV";; esac
+      - name: Diff policy
+        run: python3 scripts/gate/policy.py --base "${{ steps.base.outputs.ref }}"
+      - name: Gate selftest (나쁜 변경 36종이 실제로 막히는지)
+        run: |
+          git config --global user.name ci-selftest
+          git config --global user.email ci-selftest@users.noreply.github.com
+          scripts/gate/selftest/run.sh
+      - name: Checker self-tests
+        run: |
+          python3 scripts/gate/newman_check.py --self-test
+          python3 scripts/gate/mutation.py --self-test
+      - name: git diff --check
+        run: git diff --check "$(git merge-base '${{ steps.base.outputs.ref }}' HEAD)" HEAD -- . ':!*.md'
+      - name: Secret scan (gitleaks, changed commits)
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git --no-banner --redact --verbose \
+            --log-opts="$(git merge-base '${{ steps.base.outputs.ref }}' HEAD)..HEAD" .
+
   backend-test:
     name: ${{ matrix.service }} test
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -24,15 +87,93 @@ jobs:
           java-version: '17'
           cache: gradle
           cache-dependency-path: ${{ matrix.service }}/**/*.gradle*
-      - name: Run tests
+      - name: Gradle check (tests + ArchUnit + JaCoCo ratchet)
         working-directory: ${{ matrix.service }}
         run: |
           chmod +x gradlew
-          ./gradlew test --no-daemon
+          ./gradlew check --no-daemon --console=plain
+      - name: Test counts (0건 실행 금지)
+        if: always()
+        run: python3 scripts/gate/junit_summary.py "${{ matrix.service }}/build/test-results/test" --min 1 --max-skipped 0
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-${{ matrix.service }}
+          path: ${{ matrix.service }}/build/reports/jacoco/
+          if-no-files-found: error
+          retention-days: 7
+
+  integration:
+    name: Core + sql integration (MySQL, Redis)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-${{ github.run_id }}
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=5s --health-retries=30
+    env:
+      HARU_TEST_MYSQL_URL: jdbc:mysql://127.0.0.1:3306/
+      HARU_TEST_MYSQL_USER: root
+      HARU_TEST_MYSQL_PASSWORD: ci-${{ github.run_id }}
+      HARU_TEST_REDIS_HOST: 127.0.0.1
+      HARU_TEST_REDIS_PORT: '6379'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            CoreService/**/*.gradle*
+            sql/**/*.gradle*
+      - name: sql migration runner (unit + MySQL)
+        run: |
+          chmod +x CoreService/gradlew
+          ./CoreService/gradlew -p sql test mysqlIntegrationTest jacocoTestReport --no-daemon --console=plain
+      - name: Core MySQL + Redis lanes (with combined JaCoCo)
+        working-directory: CoreService
+        run: ./gradlew jacocoIntegrationReport --no-daemon --console=plain
+      - name: Test counts (0건 실행 금지)
+        if: always()
+        run: |
+          python3 scripts/gate/junit_summary.py sql/build/test-results/mysqlIntegrationTest --min 1
+          python3 scripts/gate/junit_summary.py CoreService/build/test-results/mysqlIntegrationTest --min 1
+          python3 scripts/gate/junit_summary.py CoreService/build/test-results/redisIntegrationTest --min 1
+      - name: No leftover isolated schemas
+        if: always()
+        run: |
+          # 조회 실패와 '잔여 0건'을 구분한다(H01.6 R11)
+          dbs=$(docker exec -e MYSQL_PWD="$HARU_TEST_MYSQL_PASSWORD" "${{ job.services.mysql.id }}" \
+            mysql -uroot -N -e "SHOW DATABASES")
+          echo "$dbs" | grep -qx 'mysql' || { echo "SHOW DATABASES 결과가 비정상"; exit 1; }
+          left=$(echo "$dbs" | grep -c '^haru_r0' || [ $? -eq 1 ])
+          echo "leftover test schemas: $left"
+          [ "$left" -eq 0 ]
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-integration
+          path: |
+            CoreService/build/reports/jacoco/jacocoIntegrationReport/
+            sql/build/reports/jacoco/
+          if-no-files-found: error
+          retention-days: 7
 
   frontend-test:
     name: React test and build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: vite-react-teamsketch
@@ -43,6 +184,90 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: vite-react-teamsketch/package-lock.json
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
+      - run: npm ci --no-audit --no-fund
+      - name: verify (lint → typecheck → test:coverage → build)
+        run: npm run verify
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-frontend
+          path: vite-react-teamsketch/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
+
+  diff-coverage:
+    name: Diff coverage
+    if: github.event_name == 'pull_request'
+    needs: [backend-test, integration, frontend-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with: { name: coverage-CoreService, path: CoreService/build/reports/jacoco }
+      - uses: actions/download-artifact@v8
+        with: { name: coverage-AssistService, path: AssistService/build/reports/jacoco }
+      - uses: actions/download-artifact@v8
+        with: { name: coverage-GateWay, path: GateWay/build/reports/jacoco }
+      - uses: actions/download-artifact@v8
+        with: { name: coverage-integration, path: . }
+      - uses: actions/download-artifact@v8
+        with: { name: coverage-frontend, path: vite-react-teamsketch/coverage }
+      - name: Reports present
+        run: find . -path ./vite-react-teamsketch/node_modules -prune -o \( -path '*jacoco*' -name '*.xml' -o -name lcov.info \) -print
+      - name: Changed lines must be tested (≥80%)
+        run: python3 scripts/gate/diff_coverage.py --base "origin/${{ github.base_ref }}"
+
+  mutation:
+    name: Mutation (changed lines)
+    # 단언 없이 호출만 하는 테스트는 diff 커버리지를 채운다. 변경 줄의 변이를 테스트가 잡는지 확인한다.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            CoreService/**/*.gradle*
+            AssistService/**/*.gradle*
+            GateWay/**/*.gradle*
+      - name: Self-test
+        run: python3 scripts/gate/mutation.py --self-test
+      - name: PIT on changed classes (changed-line score ≥ 60%)
+        run: |
+          chmod +x CoreService/gradlew AssistService/gradlew GateWay/gradlew
+          python3 scripts/gate/mutation.py --base "origin/${{ github.base_ref }}" --threshold 60
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pitest
+          path: '*/build/reports/pitest/'
+          if-no-files-found: ignore
+          retention-days: 7
+
+  e2e:
+    name: E2E compose + Newman
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Full stack on empty DB → signup → Newman 4 folders
+        run: scripts/gate/e2e.sh
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: newman-junit
+          # newman.json은 로그인 요청 본문·토큰을 담으므로 올리지 않는다(공개 저장소)
+          path: build/gate/newman-junit.xml
+          retention-days: 7

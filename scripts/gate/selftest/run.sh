@@ -98,6 +98,10 @@ cd "$TEMP_WORKTREE"
 
 # 임시 worktree 안에서 게이트 기준 상태를 커밋(BASE_REF)으로 고정
 git add -A >/dev/null 2>&1
+# core.fileMode=false 저장소에서는 rsync로 복사한 실행 권한이 인덱스에 반영되지 않는다 → 원본 인덱스 모드를 그대로 복제
+git -C "$REPO_ROOT" ls-files -s | awk '$1=="100755"{print $4}' | while read -r f; do
+  [ -e "$f" ] && git update-index --chmod=+x -- "$f"
+done
 git commit -m "chore: base gate harness state for selftest" --no-verify >/dev/null 2>&1
 BASE_REF=$(git rev-parse HEAD)
 

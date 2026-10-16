@@ -705,6 +705,15 @@ run_scenario "H20" "텍스트 블록 \"/*\" 뒤 테스트 삭제" "FAIL" "test-c
     python3 scripts/gate/policy.py --base HEAD --worktree
   '
 
+
+# PR #10 CI에서 실제 발생: 실행 비트 없이 커밋된 게이트 스크립트·훅
+run_scenario "H21" "게이트 스크립트 실행 비트 제거(staged)" "FAIL" "exec-bit" \
+  bash -c '
+    printf "\n# h21\n" >> scripts/gate/e2e.sh
+    git add scripts/gate/e2e.sh && git update-index --chmod=-x scripts/gate/e2e.sh
+    python3 scripts/gate/policy.py --staged
+  '
+
 if [ "$SLOW_MODE" -eq 1 ]; then
   echo ""
   echo "=============================================================================="

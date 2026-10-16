@@ -87,6 +87,10 @@ SECRET_PLACEHOLDER = re.compile(r"^(\$\{.*|replace-with.*|changeme|example.*|<.*
 SECRET_FILE_NAMES = re.compile(r"(^|/)(\.env(\.[\w.-]+)?|[^/]+\.env|.+\.(pem|p12|pfx|jks|keystore|key))$")
 SECRET_FILE_ALLOW = re.compile(r"\.example$|\.sample$")
 
+# 실행 파일. core.fileMode=false 저장소에서는 chmod가 커밋에 반영되지 않아 CI·새 클론에서 Permission denied,
+# git은 실행 권한 없는 훅을 조용히 건너뛴다(H01 PR #10 CI에서 실제 발생)
+EXECUTABLE_GLOBS = [".githooks/*", "scripts/gate/*.sh", "scripts/gate/*.py", "scripts/gate/selftest/*.sh",
+                    "*/gradlew", "*/docker-entrypoint.sh"]
 MIGRATION = re.compile(r"^sql/migrations/(?P<name>[^/]+)$")
 MIGRATION_NESTED = re.compile(r"^sql/migrations/.+/")
 # 단언 계열 호출. 테스트 선언 수는 그대로인데 단언만 지워 껍데기 테스트를 만드는 것을 잡는다.
@@ -221,6 +225,14 @@ class ChangeSet:
             return r.stdout.decode("utf-8", "replace") if r.returncode == 0 else None
         fp = ROOT / path
         return fp.read_text(encoding="utf-8", errors="replace") if fp.is_file() else None
+
+    def new_mode(self, path: str) -> str | None:
+        """커밋될 파일 모드(인덱스 또는 head 기준). 작업 트리 모드는 core.fileMode=false면 의미가 없다."""
+        if self.mode in ("staged", "worktree"):
+            out = git("ls-files", "-s", "--", path, check=False).split()
+        else:
+            out = git("ls-tree", self.head, "--", path, check=False).split()
+        return out[0] if out else None
 
     def new_size(self, path: str) -> int:
         if self.mode == "worktree":
@@ -415,6 +427,11 @@ def check(cs: ChangeSet) -> list[Finding]:
         if mm and fc.status == "A" and path.endswith(".sql"):
             migrations_added.append(mm.group("name"))
 
+        if fc.status != "D" and match_any(path, EXECUTABLE_GLOBS):
+            mode = cs.new_mode(path)
+            if mode is not None and mode != "100755":
+                out.append(Finding("exec-bit", path, None,
+                                   f"실행 파일인데 모드 {mode}. `git update-index --chmod=+x {path}` (core.fileMode=false라 chmod만으로는 안 된다)"))
         if match_any(path, PROTECTED_GLOBS) or (fc.old_path and match_any(fc.old_path, PROTECTED_GLOBS)):
             out.append(Finding("gate-protected", path, None, "게이트/하네스 설정 변경", approvable=True))
 

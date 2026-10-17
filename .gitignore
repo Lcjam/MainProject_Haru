@@ -83,3 +83,8 @@ coverage/
 !/scripts/gate/README.md
 !/.github/pull_request_template.md
 !/scripts/gate/mutation.md
+!/LOCAL_DEV.md
+!/sql/README.md
+
+# 개인 학습용 교과서(로컬 전용)
+/docs/교과서/

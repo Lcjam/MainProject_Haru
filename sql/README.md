@@ -2,7 +2,7 @@
 
 JDK 17과 `lower_case_table_names=0`으로 초기화한 Linux MySQL 8.4 서버를 준비한다. 이 저장소는 Docker 컨테이너 `haru-mysql`(호스트 포트 3307)을 쓰고, WSL2 Ubuntu가 클라이언트다. native Windows MySQL은 대소문자 무시 설정(1)이라 실행기가 거부한다. 설정 2의 기존 DB 이행도 검증 범위 밖이다. 저장소 루트의 Gradle wrapper로 독립 `sql` 프로젝트를 실행한다. CoreService 애플리케이션을 시작할 필요는 없다. Gradle·JDBC 의존성은 최초 다운로드가 필요하다.
 
-`schema.sql`은 20개 테이블의 구조 기준선이고 V1은 7개 테이블과 `Users.profile_image_path`를 추가한다. V2는 이메일 고유 키를 가진 `UserLocationLatest`를 추가하고 기존 `UserLocation` 행을 보존한다. 초기화 후 도메인 테이블 28개와 실행기 전용 `haru_schema_history` 1개가 존재한다. 원본 schema/V1/V2를 다시 덤프하거나 이미 적용된 파일을 수정하지 않는다.
+`schema.sql`은 20개 테이블의 구조 기준선이고 V1은 7개 테이블과 `Users.profile_image_path`를 추가한다. V2는 이메일 고유 키를 가진 `UserLocationLatest`를 추가하고 기존 `UserLocation` 행을 보존한다. V3는 게시판 임시 이미지의 소유권을 기록하는 `board_temp_images`를 추가한다. `init`은 `sql/migrations/`의 모든 `V*.sql`을 버전순으로 적용하므로 현재 초기화 후 도메인 테이블 29개와 실행기 전용 `haru_schema_history` 1개가 존재하고 버전은 3이다. 원본 schema와 이미 적용된 V 파일을 다시 덤프하거나 수정하지 않는다(새 변경은 다음 번호 V 파일로 추가).
 
 ## 적용 모드
 
@@ -40,7 +40,7 @@ unset HARU_DB_PASSWORD
 ./CoreService/gradlew -p sql run --no-daemon   --args="migrate --url jdbc:mysql://127.0.0.1:3307/ --database haru_db --user root"
 ```
 
-V1까지 이미 적용했다면 `--version 1`, V2까지 적용했다면 `--version 2`를 사용한다.
+V1까지 이미 적용했다면 `--version 1`을 사용한다. `adopt`는 `--version 0`과 `1`만 지원한다. 실행기 이력 없이 V2 이후까지 수동으로 적용된 DB는 편입할 수 없으므로, 데이터를 백업하고 새 DB에 `init`한 뒤 옮기거나 별도 복구 절차를 설계한다.
 
 
 ## 입력과 실패 계약
@@ -55,7 +55,7 @@ UTF-8 SQL을 메모리에 읽고 줄바꿈을 LF로 정규화한 SHA-256을 기�
 
 이력은 `RUNNING → SUCCESS` 또는 `RUNNING → FAILED`다. 스키마 검사까지 통과해야 성공을 기록한다. 연결 장애로 실패 기록 자체가 불가능하면 RUNNING이 남을 수 있고 다음 실행도 차단한다. MySQL DDL은 암묵적으로 커밋되므로 실행기 실패가 이미 적용한 DDL의 롤백을 뜻하지 않는다. 자동 retry/repair/baseline 재실행은 제공하지 않는다. 실패 DB와 이력을 보존하고 백업·실행 파일·부분 적용 내용을 대조해 별도 복구를 설계한다. [MySQL DDL 커밋 규칙](https://dev.mysql.com/doc/refman/8.4/en/implicit-commit.html), [세션 잠금](https://dev.mysql.com/doc/refman/8.4/en/locking-functions.html).
 
-현재 실행기는 저장소 baseline/V1/V2 형태의 SQL을 지원하는 제한된 도구다. 지원 범위는 인용된 테이블명으로 작성한 InnoDB/utf8mb4 CREATE TABLE·단일 ALTER TABLE ADD COLUMN과 기준선의 세션 설정이다. 일반 visible BTREE 오름차순 전체 컬럼 인덱스만 지원하고, prefix/함수/내림차순/숨김 인덱스와 generated/숨김 컬럼은 편입하지 않는다. 검증용 `SELECT SLEEP(정수)`도 허용하지만 데이터 migration 기능은 아니다. DROP/RENAME/임의 ALTER, 저장 프로시저·트리거·이벤트, 동적 SQL, 다른 스키마를 지정하는 참조, 서버·계정 설정 변경은 후속 migration에 넣지 않는다. 새 문법이 필요하면 실행 전 검사·구조 비교·테스트를 함께 확장하거나 기성 migration 도구로 전환하는 별도 설계를 한다. 실행기는 신뢰하지 않는 SQL을 안전하게 실행하는 샌드박스가 아니다.
+현재 실행기는 저장소 baseline/V1~V3 형태의 SQL을 지원하는 제한된 도구다. 지원 범위는 인용된 테이블명으로 작성한 InnoDB/utf8mb4 CREATE TABLE·단일 ALTER TABLE ADD COLUMN과 기준선의 세션 설정이다. 일반 visible BTREE 오름차순 전체 컬럼 인덱스만 지원하고, prefix/함수/내림차순/숨김 인덱스와 generated/숨김 컬럼은 편입하지 않는다. 검증용 `SELECT SLEEP(정수)`도 허용하지만 데이터 migration 기능은 아니다. DROP/RENAME/임의 ALTER, 저장 프로시저·트리거·이벤트, 동적 SQL, 다른 스키마를 지정하는 참조, 서버·계정 설정 변경은 후속 migration에 넣지 않는다. 새 문법이 필요하면 실행 전 검사·구조 비교·테스트를 함께 확장하거나 기성 migration 도구로 전환하는 별도 설계를 한다. 실행기는 신뢰하지 않는 SQL을 안전하게 실행하는 샌드박스가 아니다.
 
 서버의 `lower_case_table_names`가 0이 아니면 변경 전에 거부한다. 잠금은 이 실행기를 사용하는 세션끼리의 협력 잠금이므로 이행 중 다른 클라이언트의 DDL을 중지해야 한다. 기존 DB 편입 전에는 백업과 복구 가능성을 확인한다. 메타데이터 전체를 볼 수 없는 제한 계정이나 운영 서버는 이번 검증 대상이 아니다.
 

@@ -66,7 +66,19 @@ for i in $(seq 1 40); do
   sleep 3
 done
 docker exec haru-mysql mysqladmin ping -h127.0.0.1 --silent >/dev/null 2>&1 \
-  && echo "      MySQL  alive (3307)" || echo "[!]   MySQL 응답 없음" >&2
+  && echo "      MySQL  alive (3307)" || { echo "[!]   MySQL 응답 없음" >&2; exit 1; }
+
+# 새로 만든 컨테이너에는 haru_db가 없다 → 마이그레이션 실행기로 init(기준선 + 전체 V*). 이미 있으면 migrate.
+# 비밀번호는 명령줄에 남기지 않도록 환경변수로만 넘긴다.
+if [ -z "$(docker exec -e MYSQL_PWD="$DB_PASSWORD" haru-mysql mysql -uroot -N -e "SHOW DATABASES LIKE 'haru_db'" 2>/dev/null)" ]; then
+  echo "      haru_db 없음 → 스키마 초기화(init)"
+  db_mode=init
+else
+  db_mode=migrate
+fi
+HARU_DB_PASSWORD="$DB_PASSWORD" "$ROOT/CoreService/gradlew.bat" -p "$ROOT/sql" run --console=plain -q \
+  --args="$db_mode --url jdbc:mysql://127.0.0.1:3307/ --database haru_db --user root" \
+  || { echo "[!]   스키마 $db_mode 실패 — sql/README.md 참고" >&2; exit 1; }
 
 # ----------------------------------------------------------------------------
 # 2) Spring 서비스 순차 기동
@@ -82,8 +94,18 @@ start_spring () {
   local waited=0
   until grep -qE "Started .*Application|Netty started|BUILD FAILED|APPLICATION FAILED" "$logfile" 2>/dev/null; do
     sleep 3; waited=$((waited + 3))
-    [ "$waited" -ge 180 ] && { echo "[!]   $name 180초 내 기동 확인 실패 → $logfile 확인" >&2; break; }
+    if [ "$waited" -ge 180 ]; then
+      echo "[!]   $name 180초 내 기동 확인 실패 → $logfile 확인" >&2
+      echo "      이미 띄운 백엔드 종료: $KILL_HINT" >&2
+      exit 1
+    fi
   done
+  # 실패 메시지도 대기를 끝내는 신호다. 성공으로 취급해 다음 서비스로 넘어가지 않는다.
+  if grep -qE "BUILD FAILED|APPLICATION FAILED" "$logfile"; then
+    echo "[!]   $name 기동 실패 → $logfile 확인" >&2
+    echo "      이미 띄운 백엔드 종료: $KILL_HINT" >&2
+    exit 1
+  fi
 }
 
 echo "[2/4] GateWay 기동..."

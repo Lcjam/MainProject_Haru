@@ -138,7 +138,7 @@ npx --yes newman@6.2.3 run api-tests/haru.postman_collection.json \
 curl -4 -s -X POST -H "Content-Type: application/json" -d '{}' http://127.0.0.1:8080/api/core/auth/login
 curl -4 -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/api/core/   # 401 (JWT 필터)
 curl -4 -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/            # 200
-curl -4 -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/api/core/auth/login  # 200 (nginx→gateway)
+curl -4 -s -o /dev/null -w "%{http_code}\n" -X POST -H "Content-Type: application/json" -d '{}' http://127.0.0.1:3000/api/core/auth/login  # 400 (nginx→gateway→Core, ui 프로필)
 ss -ltnp | grep -E ":(8080|8081|8082|3000)\b"                                # 포트 확인
 docker compose ps                                                            # compose 스택 상태
 docker exec haru-redis redis-cli ping                                        # PONG (네이티브 기동 시)

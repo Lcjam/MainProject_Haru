@@ -89,7 +89,12 @@ sql_test() {
 front_verify() {
   (cd "$ROOT/vite-react-teamsketch" && {
     case "$(command -v npm)" in /mnt/*) echo "Windows npm이 PATH에 있다. Linux node를 쓴다"; exit 1;; esac
-    [ -d node_modules ] || npm ci --no-audit --no-fund
+    # 없거나, 저장소 밖을 가리키는 링크거나, lockfile이 설치본보다 새로우면 다시 설치한다(PR #10 리뷰)
+    if [ ! -d node_modules ] || [ -L node_modules ] || [ ! -f node_modules/.package-lock.json ] ||
+       [ package-lock.json -nt node_modules/.package-lock.json ]; then
+      [ -L node_modules ] && rm -f node_modules
+      npm ci --no-audit --no-fund
+    fi
     npm run verify
   })
 }

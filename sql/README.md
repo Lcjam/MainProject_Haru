@@ -9,7 +9,7 @@ JDK 17과 `lower_case_table_names=0`으로 초기화한 Linux MySQL 8.4 서버�
 | 현재 DB | 명령 | 동작 |
 |---|---|---|
 | DB가 없거나 완전히 비어 있음 | `init` | 기준선과 버전순 migration 적용 |
-| 실행기 이력 없는 baseline 스키마 | `adopt --version 0` 다음 `migrate` | 기존 구조 검사·이력 편입 후 V1 적용 |
+| 실행기 이력 없는 baseline 스키마 | `adopt --version 0` 다음 `migrate` | 기존 구조 검사·이력 편입 후 이후 버전(V1~V3) 적용 |
 | 실행기 이력 없는 baseline+V1 스키마 | `adopt --version 1` 다음 `migrate` | 기존 구조 검사·이력 편입, V1 재실행 안 함 |
 | 실행기 이력이 있는 DB | `migrate` | 이력·체크섬·현재 구조 확인 후 새 버전만 적용 |
 | 일부 적용·알 수 없는 구조·실패 이력 | 실행 거부 | 백업과 실패 지점을 검토한 뒤 수동 복구 설계 |
@@ -20,7 +20,7 @@ JDK 17과 `lower_case_table_names=0`으로 초기화한 Linux MySQL 8.4 서버�
 
 모든 명령은 저장소 루트(`~/code/haru`) 기준이다. **저장소 루트에는 wrapper가 없으므로** 독립 `sql` 프로젝트는 `./CoreService/gradlew -p sql`로 실행한다(sh 래퍼. `.bat`은 Windows 보존본 전용).
 
-> **compose로 기동하면 이 절차를 손으로 할 필요가 없다.** `migrator` 서비스가 기동 시 `init`을 수행한다.
+> **compose로 기동하면 이 절차를 손으로 할 필요가 없다.** `migrator` 서비스가 `auto` 모드로 기동하여 먼저 `migrate`를 시도하고, DB가 없을 때만 `init`을 수행한다.
 > 아래는 네이티브 기동용 컨테이너 `haru-mysql`(호스트 포트 **3307**)을 대상으로 한다. 자세한 배경은 [`../LOCAL_DEV.md`](../LOCAL_DEV.md). 아래 비밀번호 입력은 명령 기록에 값을 직접 적지 않기 위한 방법이다. 환경변수는 자식 Java 프로세스에 전달되므로 끝나면 제거한다.
 
 ```bash

@@ -29,22 +29,24 @@ compose 스택에서 호스트로 published 되는 포트는 **gateway(8080)와 
 
 ## 데이터베이스와 Redis
 
-MySQL은 **`lower_case_table_names=0`인 Linux MySQL 8.4가 필수**다. 마이그레이션 실행기가 그 외 설정을 거부한다(`Migration refused: R02 requires a MySQL server with lower_case_table_names=0`). Windows 네이티브 MySQL은 이 값이 `1`이라 쓸 수 없으므로 컨테이너를 쓰고, 네이티브 MySQL이 3306을 잡고 있으므로 호스트 포트는 **3307**을 쓴다.
+MySQL은 **`lower_case_table_names=0`인 Linux MySQL 8.4가 필수**다. 마이그레이션 실행기가 그 외 설정을 거부한다(`Migration refused: R02 requires a MySQL server with lower_case_table_names=0`). Windows 네이티브 MySQL은 이 값이 `1`이라 쓸 수 없으므로 컨테이너를 쓰고, 호스트 3306 충돌을 피하려고 이 가이드는 **3307**을 쓴다.
 
 ```bash
 PW=$(grep '^DB_PASSWORD=' CoreService/.env | cut -d= -f2-)
 
 docker start haru-redis 2>/dev/null || \
-  docker run -d --name haru-redis -p 6379:6379 --restart unless-stopped redis:7-alpine
+  docker run -d --name haru-redis -p 127.0.0.1:6379:6379 --restart unless-stopped redis:7-alpine
 docker start haru-mysql 2>/dev/null || \
-  docker run -d --name haru-mysql -p 3307:3306 --restart unless-stopped \
+  docker run -d --name haru-mysql -p 127.0.0.1:3307:3306 --restart unless-stopped \
     -e MYSQL_ROOT_PASSWORD="$PW" mysql:8.4 --lower-case-table-names=0
 
 docker exec haru-redis redis-cli ping                          # PONG
 docker exec haru-mysql mysqladmin ping -h127.0.0.1 --silent    # alive
 ```
 
-DB 작업은 [`sql/README.md`](sql/README.md)의 실행 명령을 따른다. `init`은 빈 DB에 baseline + V1을 적용한다. 기존 DB에 실행기 이력이 없으면 확인된 스키마 버전에 맞춰 `adopt --version 0`(baseline) 또는 `adopt --version 1`(V1까지 적용)을 실행한 뒤 `migrate`한다. 이미 이력이 있는 DB는 `migrate`만 실행한다. 비밀번호는 `HARU_DB_PASSWORD` 환경변수로 주입하며, 실행기는 서비스의 `.env`를 자동 로드하지 않는다.
+인증 없는 Redis 및 로컬 DB의 외부 노출을 막으려고 루프백(`127.0.0.1`)에 바인딩한다. 이미 생성한 컨테이너의 포트 바인딩은 이 명령으로 바뀌지 않는다. 기존 데이터와 마운트를 확인하고 백업하기 전에는 컨테이너를 삭제·재생성하지 않는다.
+
+DB 작업은 [`sql/README.md`](sql/README.md)의 실행 명령을 따른다. `init`은 빈 DB에 baseline과 전체 migration(현재 V1~V3)을 적용한다. 기존 DB에 실행기 이력이 없으면 확인된 스키마 버전에 맞춰 `adopt --version 0`(baseline) 또는 `adopt --version 1`(V1까지 적용)을 실행한 뒤 `migrate`한다. 이미 이력이 있는 DB는 `migrate`만 실행한다. 비밀번호는 `HARU_DB_PASSWORD` 환경변수로 주입하며, 실행기는 서비스의 `.env`를 자동 로드하지 않는다.
 
 ```bash
 export HARU_DB_PASSWORD=$(grep '^DB_PASSWORD=' CoreService/.env | cut -d= -f2-)
@@ -54,7 +56,7 @@ docker exec -i haru-mysql mysql -uroot -p"$HARU_DB_PASSWORD" < sql/seed-local.sq
 unset HARU_DB_PASSWORD
 ```
 
-`schema.sql`은 DROP 구문이 있으므로 기존 DB에 직접 재실행하지 않는다. 현재 도메인 테이블은 baseline 20개 + V1 7개이며, 실행기 이력 테이블(`haru_schema_history`)은 별도다. 이후 변경은 `sql/migrations/V*.sql`로 누적한다. compose로 기동하면 `migrator` 서비스가 이 `init`을 자동으로 수행하므로 아래 수동 절차는 네이티브 기동(`haru-mysql`, 3307) 전용이다.
+`schema.sql`은 DROP 구문이 있으므로 기존 DB에 직접 재실행하지 않는다. 현재 도메인 테이블은 baseline 20개 + V1~V3 9개(총 29개)이며, 실행기 이력 테이블(`haru_schema_history`)은 별도다. 이후 변경은 `sql/migrations/V*.sql`로 누적한다. compose로 기동하면 `migrator` 서비스가 `auto` 모드로 먼저 `migrate`를 시도하고 DB가 없을 때만 `init`을 수행하므로 아래 수동 절차는 네이티브 기동(`haru-mysql`, 3307) 전용이다.
 
 ## 환경변수
 
@@ -91,7 +93,7 @@ docker compose --profile ui up -d     # 프론트(nginx, 3000)까지
 docker compose ps                     # 전부 healthy 인지 확인
 ```
 
-프로젝트명은 `.env`의 `COMPOSE_PROJECT_NAME`(기본 `haru-dev`)이 정하며, 볼륨 이름도 여기서 파생된다. **프로젝트명을 바꾸면 다른 볼륨을 쓰게 되어 빈 DB가 만들어진다.** `migrator` 서비스가 기동 시 `init`을 수행하고 `Initialized and migrated database haru_db to version 1`을 남긴 뒤 정상 종료(Exited 0)한다.
+프로젝트명은 `.env`의 `COMPOSE_PROJECT_NAME`(기본 `haru-dev`)이 정하며, 볼륨 이름도 여기서 파생된다. **프로젝트명을 바꾸면 다른 볼륨을 쓰게 되어 빈 DB가 만들어진다.** `migrator` 서비스는 기동 시 `auto` 모드로 먼저 `migrate`를 시도하고, DB가 존재하지 않을 때만 `init`을 수행하여 `Initialized and migrated database haru_db to version 3`을 남긴 뒤 정상 종료(Exited 0)한다. 이미 존재하지만 테이블이 없는 DB는 이력이 없어 거부되므로 수동 `init` 대상이다.
 
 종료는 다음과 같다. `-v`는 데이터 볼륨까지 지우므로 DB를 새로 구성할 때만 쓴다.
 
@@ -134,11 +136,10 @@ npx --yes newman@6.2.3 run api-tests/haru.postman_collection.json \
 ```
 
 ```bash
-# 게이트웨이→Core→DB 왕복 (정상 = 400 JSON)
+# 게이트웨이→Core 입력 검증 (400 BAD_REQUEST, DB 왕복 확인은 api-tests/README.md 참조)
 curl -4 -s -X POST -H "Content-Type: application/json" -d '{}' http://127.0.0.1:8080/api/core/auth/login
-curl -4 -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/api/core/   # 401 (JWT 필터)
-curl -4 -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/            # 200
-curl -4 -s -o /dev/null -w "%{http_code}\n" -X POST -H "Content-Type: application/json" -d '{}' http://127.0.0.1:3000/api/core/auth/login  # 400 (nginx→gateway→Core, ui 프로필)
+curl -4 -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/api/core/boards/hosted  # 401 (보호 경로 인증 거부)
+curl -4 -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/            # 200 (선택: --profile ui로 프론트를 띄웠을 때만)
 ss -ltnp | grep -E ":(8080|8081|8082|3000)\b"                                # 포트 확인
 docker compose ps                                                            # compose 스택 상태
 docker exec haru-redis redis-cli ping                                        # PONG (네이티브 기동 시)

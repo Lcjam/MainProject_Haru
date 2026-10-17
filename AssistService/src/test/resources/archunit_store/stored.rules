@@ -1,0 +1,4 @@
+#
+#Fri Oct 16 12:59:49 KST 2026
+no\ classes\ that\ reside\ in\ a\ package\ '..controller..'\ should\ depend\ on\ classes\ that\ reside\ in\ any\ package\ ['..mapper..',\ '..dao..']=889bc3d0-5dc8-4e35-a660-db9b5efdcc87
+fields\ that\ are\ annotated\ with\ @Autowired\ should\ not\ be\ annotated\ with\ @Autowired=defb92bf-f0bb-4c3a-995f-3f03e3b3c053

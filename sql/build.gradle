@@ -1,5 +1,6 @@
 plugins {
     id 'application'
+    id 'jacoco'
 }
 
 group = 'com.haru'
@@ -52,5 +53,23 @@ tasks.register('mysqlIntegrationTest', Test) {
         if (!missing.isEmpty()) {
             throw new GradleException("Dedicated MySQL test configuration is missing: ${missing.join(', ')}")
         }
+    }
+}
+
+// H01: 단위 + MySQL 레인 실행 데이터를 합친 리포트. 경로는 scripts/gate/diff_coverage.py가 읽는다.
+tasks.named('jacocoTestReport', JacocoReport) {
+    executionData.from(fileTree(layout.buildDirectory.dir('jacoco')).include('*.exec'))
+    mustRunAfter tasks.named('test'), tasks.named('mysqlIntegrationTest')
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+tasks.withType(Test).configureEach {
+    systemProperty 'junit.jupiter.execution.timeout.default', '120 s'
+    testLogging {
+        events 'failed'
+        exceptionFormat = 'full'
     }
 }

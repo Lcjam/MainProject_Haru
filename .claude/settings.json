@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git commit --no-verify:*)",
+      "Bash(git commit -n:*)",
+      "Bash(git push --no-verify:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git config core.hooksPath:*)"
+    ],
+    "ask": [
+      "Bash(gh pr merge:*)",
+      "Bash(gh api -X PUT repos/*/branches/*/protection*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,sys,re; c=json.load(sys.stdin).get('tool_input',{}).get('command',''); bad=re.search(r'--no-verify|\\bcommit\\s+(-\\w*n\\b)|GATE_APPROVED=1|push\\s+(-f\\b|--force)', c); (print('하네스 우회 금지: --no-verify / 강제 푸시 / GATE_APPROVED 는 사용자가 직접 실행한다', file=sys.stderr), sys.exit(2)) if bad else sys.exit(0)\""
+          }
+        ]
+      }
+    ]
+  }
+}

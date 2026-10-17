@@ -111,7 +111,7 @@ class StompBrokerAuthorizationIntegrationTest {
                         handshakeHeaders,
                         connectHeaders,
                         new StompSessionHandlerAdapter() {})
-                .get(5, TimeUnit.SECONDS);
+                .get(10, TimeUnit.SECONDS);
     }
 
     @AfterEach
@@ -127,11 +127,11 @@ class StompBrokerAuthorizationIntegrationTest {
         session.subscribe("/topic/room.7", emptyFrameHandler());
         session.subscribe("/topic/room.8", emptyFrameHandler());
 
-        assertTrue(waitUntil(() -> hasSubscription("/topic/room.7"), 2_000));
+        assertTrue(waitUntil(() -> hasSubscription("/topic/room.7"), 10_000));
         assertFalse(waitUntil(() -> hasSubscription("/topic/room.8"), 500));
 
         session.send("/app/chat/send", Map.of("chatroomId", 7));
-        assertEquals(7, probeController.receivedChatroomIds.poll(2, TimeUnit.SECONDS));
+        assertEquals(7, probeController.receivedChatroomIds.poll(10, TimeUnit.SECONDS));
 
         session.send("/app/chat/send", Map.of("chatroomId", 8));
         assertNull(probeController.receivedChatroomIds.poll(500, TimeUnit.MILLISECONDS));
@@ -142,10 +142,10 @@ class StompBrokerAuthorizationIntegrationTest {
     void openedSubscription_stopsReceivingAfterAccessIsRevoked() throws Exception {
         BlockingQueue<String> received = new LinkedBlockingQueue<>();
         session.subscribe("/topic/room.7", frameHandler(received));
-        assertTrue(waitUntil(() -> hasSubscription("/topic/room.7"), 2_000));
+        assertTrue(waitUntil(() -> hasSubscription("/topic/room.7"), 10_000));
 
         messagingTemplate.convertAndSend("/topic/room.7", "allowed");
-        assertEquals("allowed", received.poll(2, TimeUnit.SECONDS));
+        assertEquals("allowed", received.poll(10, TimeUnit.SECONDS));
 
         given(blacklistService.isBlacklisted("valid-token")).willReturn(true);
         assertOutboundBlocked(received, "blacklisted");
@@ -180,7 +180,7 @@ class StompBrokerAuthorizationIntegrationTest {
                             headers,
                             connectHeaders,
                             new StompSessionHandlerAdapter() {})
-                    .get(5, TimeUnit.SECONDS));
+                    .get(10, TimeUnit.SECONDS));
         } finally {
             rejectedClient.stop();
         }

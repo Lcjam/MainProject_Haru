@@ -1,5 +1,7 @@
 plugins {
+	id 'info.solidsoft.pitest' version '1.19.0'
 	id 'java'
+	id 'jacoco'
 	id 'org.springframework.boot' version '3.3.7'
 	id 'io.spring.dependency-management' version '1.1.6'
 }
@@ -43,9 +45,102 @@ dependencies {
    implementation 'net.nurigo:sdk:4.2.7'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.1'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
 }
 
+
+// Gradle 8.12 has no failOnNoDiscoveredTests; guard both empty classes and empty discovery.
+tasks.register('verifyTestClasses') {
+	dependsOn tasks.named('testClasses')
+	doLast {
+		if (tasks.named('test').get().candidateClassFiles.isEmpty()) {
+			throw new GradleException('No test classes found')
+		}
+	}
+}
+
+tasks.withType(Test).configureEach {
+	systemProperty 'junit.jupiter.execution.timeout.default', '60 s'
+	testLogging {
+		events 'failed'
+		exceptionFormat = 'full'
+	}
+	afterSuite { suite, result ->
+		if (suite.parent == null && result.testCount == 0) {
+			throw new GradleException('No tests discovered')
+		}
+	}
+}
+
+tasks.named('test') {
+	dependsOn tasks.named('verifyTestClasses')
+	finalizedBy tasks.named('jacocoTestReport')
+}
+
+// A finalizer-only report still runs after failed tests.
+tasks.named('jacocoTestReport') {
+	reports {
+		xml.required = true
+		xml.outputLocation = layout.buildDirectory.file('reports/jacoco/test/jacocoTestReport.xml')
+		html.required = true
+	}
+}
+
+tasks.named('jacocoTestCoverageVerification') {
+	dependsOn tasks.named('test')
+	violationRules {
+		rule {
+			element = 'BUNDLE'
+			limit {
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.72
+			}
+			limit {
+				counter = 'BRANCH'
+				value = 'COVEREDRATIO'
+				minimum = 0.57
+			}
+		}
+	}
+}
+
+tasks.named('check') {
+	dependsOn tasks.named('jacocoTestCoverageVerification')
+}
+
+// Explicit classes only: never fall back to PIT's project-wide default.
+pitest {
+	pitestVersion = '1.22.1'
+	junit5PluginVersion = '1.2.3'
+	// Auto-detection ignores Spring Boot's BOM and selects an incompatible launcher.
+	addJUnitPlatformLauncher = false
+	targetClasses = providers.gradleProperty('pitTargetClasses').orElse('').map { raw ->
+		def names = raw.split(',', -1).collect { it.trim() }
+		if (names.any { !(it ==~ /[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)+/) }) {
+			throw new GradleException('pitest requires -PpitTargetClasses=com.x.A,com.x.B (explicit class names)')
+		}
+		return names.collectMany { [it, it + '$*'] }
+	}
+	targetTests = ['*']
+	excludedGroups = ['mysql', 'redis']
+	threads = 2
+	timeoutFactor = 2.0
+	timeoutConstInMillis = 5000
+	mutators = ['DEFAULTS']
+	outputFormats = ['XML', 'HTML']
+	timestampedReports = false
+	reportDir = layout.buildDirectory.dir('reports/pitest')
+	// Comment-only changes and classes with no mutable bytecode are valid inputs.
+	failWhenNoMutations = false
+	jvmArgs = ['-Djunit.jupiter.execution.timeout.default=60s']
+}
+
+tasks.named('pitest') {
+	outputs.upToDateWhen { false }
+}

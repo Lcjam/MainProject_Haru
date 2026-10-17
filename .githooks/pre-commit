@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# 스테이징된 변경의 정책 검사(수 초). 설치: scripts/gate/install-hooks.sh
+exec "$(git rev-parse --show-toplevel)/scripts/gate/gate.sh" staged

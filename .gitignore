@@ -73,7 +73,13 @@ awesome-codex-subagents/
 *.jks
 *.keystore
 
+# 테스트 커버리지 산출물 (H01)
+coverage/
+
 # Markdown: 루트 README.md 외 원격 제외
 *.md
 !/README.md
 !/api-tests/README.md
+!/scripts/gate/README.md
+!/.github/pull_request_template.md
+!/scripts/gate/mutation.md

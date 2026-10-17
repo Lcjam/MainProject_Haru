@@ -1,0 +1,275 @@
+{
+  "src/components/features/card/ProductCard.tsx": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/components/features/location/LocationInfo.tsx": {
+    "no-console": {
+      "count": 2
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 2
+    }
+  },
+  "src/components/features/location/OpenMap.tsx": {
+    "no-console": {
+      "count": 1
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 2
+    }
+  },
+  "src/components/features/upload/CameraCapture.tsx": {
+    "no-console": {
+      "count": 8
+    }
+  },
+  "src/components/features/upload/ImageUpload.tsx": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/components/features/upload/ProfileSelector.tsx": {
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    }
+  },
+  "src/components/features/upload/useCardScanner.ts": {
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    }
+  },
+  "src/contexts/WebSocketContext.tsx": {
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    },
+    "react-refresh/only-export-components": {
+      "count": 1
+    }
+  },
+  "src/hooks/useCategories.ts": {
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    }
+  },
+  "src/main.tsx": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/mock/mockAPI.ts": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/pages/Transaction history/TransactionDetail.tsx": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/pages/account/ForgotPassword.tsx": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/pages/account/Login.tsx": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/pages/account/ResetPassword.tsx": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/pages/account/Signup.tsx": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/pages/account/VerificationCode.tsx": {
+    "no-console": {
+      "count": 4
+    }
+  },
+  "src/pages/account/VerifyMethod.tsx": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/pages/chatroom/ChatRoom.tsx": {
+    "react-hooks/exhaustive-deps": {
+      "count": 3
+    },
+    "no-console": {
+      "count": 9
+    }
+  },
+  "src/pages/map/MyLocation.tsx": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/pages/map/ShareLocationMap.tsx": {
+    "no-console": {
+      "count": 4
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    }
+  },
+  "src/pages/marketplace/MarketList.tsx": {
+    "react-hooks/exhaustive-deps": {
+      "count": 2
+    }
+  },
+  "src/pages/marketplace/ProdLocationMap.tsx": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/pages/marketplace/ProductDetails.tsx": {
+    "no-console": {
+      "count": 6
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    }
+  },
+  "src/pages/mypage/MyPage.tsx": {
+    "no-console": {
+      "count": 2
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 2
+    }
+  },
+  "src/pages/mypage/ProfileManage.tsx": {
+    "no-console": {
+      "count": 6
+    }
+  },
+  "src/pages/mypage/Setting.tsx": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/pages/payment/CardDetails.tsx": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/pages/payment/OCRUpload.tsx": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/services/api/authAPI.ts": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/services/api/axiosInstance.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "src/services/api/axiosInstance.ts": {
+    "no-console": {
+      "count": 11
+    }
+  },
+  "src/services/api/cloudAPI.ts": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/services/api/productAPI.ts": {
+    "no-console": {
+      "count": 6
+    }
+  },
+  "src/services/api/profileImageAPI.ts": {
+    "no-console": {
+      "count": 7
+    }
+  },
+  "src/services/api/userChatAPI.ts": {
+    "no-console": {
+      "count": 5
+    }
+  },
+  "src/services/real-time/NotificationHandler.tsx": {
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    }
+  },
+  "src/services/real-time/useChat.ts": {
+    "no-console": {
+      "count": 6
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 2
+    }
+  },
+  "src/services/real-time/useLocation.ts": {
+    "no-console": {
+      "count": 7
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 2
+    }
+  },
+  "src/services/real-time/useNotification.ts": {
+    "no-console": {
+      "count": 8
+    }
+  },
+  "src/services/real-time/websocketService.ts": {
+    "no-console": {
+      "count": 21
+    }
+  },
+  "src/testpages/TestComponent.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    },
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/types/api.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "src/utils/cardDetection.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 12
+    },
+    "no-console": {
+      "count": 14
+    }
+  },
+  "src/utils/errorMessage.test.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/components/features/chat/ChatMessageList.tsx": {
+    "react-refresh/only-export-components": {
+      "count": 1
+    }
+  },
+  "src/components/layout/MainLayout.tsx": {
+    "react-refresh/only-export-components": {
+      "count": 4
+    }
+  },
+  "src/contexts/ThemeContext.tsx": {
+    "react-refresh/only-export-components": {
+      "count": 1
+    }
+  }
+}

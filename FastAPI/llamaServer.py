@@ -43,7 +43,6 @@ origins = [
     "http://gateway-container:8080",
     "http://core-container:8081",
     "http://assist-container:8082",
-    "https://sunbee.world",
     "*",  # 개발 중에는 모든 origin 허용
 ]
 app.add_middleware(

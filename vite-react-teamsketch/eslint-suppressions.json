@@ -233,10 +233,10 @@
   },
   "src/testpages/TestComponent.tsx": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 1
     },
     "no-console": {
-      "count": 3
+      "count": 1
     }
   },
   "src/types/api.ts": {

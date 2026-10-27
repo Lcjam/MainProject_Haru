@@ -13,10 +13,6 @@ import InfoBox from '../components/forms/box/InfoBox';
 import CustomInput from '../components/forms/input/CustomInput';
 import DaySection from '../components/forms/radiobutton/DaySelect';
 import ProfileSelector from '../components/features/upload/ProfileSelector';
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-
-import axios from 'axios';
 
 interface OCRResult {
   status: string;
@@ -40,8 +36,6 @@ const TestComponent = () => {
 
   const [search, setSearch] = useState('');
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
-  const [recipientEmail, setRecipientEmail] = useState('');
-  const [notificationMessage, setNotificationMessage] = useState('테스트 알림 메시지입니다!');
 
   const handleOCRUpload = async (formData: FormData) => {
     try {
@@ -53,72 +47,10 @@ const TestComponent = () => {
       setOcrResult(null);
     }
   };
-  const notificationService = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const myEmail = localStorage.getItem('userEmail') || 'test@test.com';
-
-      // 직접 테스트 토스트 메시지 제거 (중복 알림 방지)
-      // toast.info('직접 테스트 토스트 메시지입니다!', { ... });
-
-      // 수신자 이메일 확인
-      const targetEmail = recipientEmail.trim() || myEmail;
-      console.log('알림 테스트: 보내는 사람 -', myEmail, '받는 사람 -', targetEmail);
-
-      // GET 요청으로 변경하고 파라미터를 올바르게 전달
-      await axios.get('http://sunbee.world:8080/api/core/test/v2/notify', {
-        params: {
-          email: targetEmail, // 입력한 이메일 또는 기본값
-          message: notificationMessage
-        },
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      console.log('알림 전송 요청 완료');
-
-      // 메시지 전송 성공 알림은 유지
-      toast.success(`${targetEmail}님에게 알림을 전송했습니다!`, {
-        position: "top-right", // 위치 변경하여 구분
-        autoClose: 2000
-      });
-    } catch (error) {
-      console.error('알림 전송 요청 실패:', error);
-      toast.error('알림 전송 실패: ' + (error as any).message);
-    }
-  }
 
   return (
     <div className="p-8 space-y-8 flex flex-col items-center justify-center">
       <h1 className="text-2xl font-bold mb-6">컴포넌트 테스트 페이지</h1>
-
-      <div className="w-full max-w-md p-4 bg-white rounded-lg shadow mb-4">
-        <h2 className="text-lg font-semibold mb-4">알림 테스트</h2>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">수신자 이메일</label>
-            <input
-              type="email"
-              value={recipientEmail}
-              onChange={(e) => setRecipientEmail(e.target.value)}
-              placeholder="test@test.test"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">비워두면 본인에게 알림이 발송됩니다</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">알림 메시지</label>
-            <input
-              type="text"
-              value={notificationMessage}
-              onChange={(e) => setNotificationMessage(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-          <Button onClick={notificationService} variant="primary" className="w-full">알림 전송</Button>
-        </div>
-      </div>
 
       <section className="space-y-6 w-full max-w-3xl p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div>

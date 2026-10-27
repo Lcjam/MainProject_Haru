@@ -27,7 +27,7 @@ public class RouteConfig {
         log.debug("현재 활성화된 프로필: " + activeProfile);
 
         final String coreUri = "prod".equals(activeProfile)
-                ? "http://core-container:8081" // 도커네트워크브릿지 사용하지 않고 외부 도메인 사용 시 sunbee.world 사용하는 거처럼 외부에 독립적인 서버 설정 가능
+                ? "http://core-container:8081" // compose 네트워크 별칭
                 : "http://localhost:8081"; // 이 url로 전달 됩니다다
 
         final String assistUri = "prod".equals(activeProfile)
